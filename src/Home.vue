@@ -12,7 +12,7 @@
   const router = useRouter();
   
   const cerrarSesion = () => {
-    router.push('/'); //  Regresa al Login
+    router.push('/'); 
   };
   </script>
 
@@ -39,7 +39,7 @@
 }
 
 .cerrar-sesion-button {
-  background-color: rgb(223, 246, 77);
+  background-color: hwb(68 30% 4%);
   color: rgb(0, 0, 0); 
   border: 10;
   padding: 25px 10px;
