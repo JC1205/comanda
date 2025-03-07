@@ -1,57 +1,27 @@
 <template>
-    <div class="home-container">
-      <button class="comedor-button" @click="">Comedor</button>
-      <button class="domicilio-button" @click="">Domicilio</button>
-      <button class="cerrar-sesion-button"@click="cerrarSesion">Cerrar sesión</button>
-    </div>
-  </template>
-  
-  <script setup>
-  import { useRouter } from 'vue-router';
-  
-  const router = useRouter();
-  
-  const cerrarSesion = () => {
-    router.push('/'); 
-  };
-  </script>
+  <div class="home-container">
+    <button @click="">Comedor</button>
+    <button @click="">Domicilio</button>
+    <button @click="">Retiro y <br> depósito</button>
+    <button @click="">Consultar <br> citas</button>
+    <button @click="mostrarVentana = true">Abrir turno</button>
+    <button @click="">Cerrar turno</button>
+    <button @click="salir">Salir</button>
+  </div>
 
-<style>
+  <AbrirTurno :mostrar="mostrarVentana" @cerrar="mostrarVentana = false" />
+</template>
 
-.comedor-button {
-  background-color: rgb(223, 246, 77);
-  color: rgb(0, 0, 0); 
-  border: 10;
-  padding: 25px 10px;
-  font-size: 12px;
-  border-radius: 15px; 
-  cursor: pointer; 
-}
+<script setup>
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import AbrirTurno from "@/views/abrirTurno.vue";
 
-.domicilio-button {
-  background-color: rgb(223, 246, 77);
-  color: rgb(0, 0, 0); 
-  border: 10;
-  padding: 25px 10px;
-  font-size: 12px;
-  border-radius: 15px; 
-  cursor: pointer; 
-}
+// Estado
+const mostrarVentana = ref(false);
+const router = useRouter();
 
-.cerrar-sesion-button {
-  background-color: hwb(68 30% 4%);
-  color: rgb(0, 0, 0); 
-  border: 10;
-  padding: 25px 10px;
-  font-size: 12px;
-  border-radius: 15px; 
-  cursor: pointer; 
-}
-
-.home-container {
-  background-color: #81817f; 
-  padding: 20px; 
-}
-
-</style>
-  
+const salir = () => {
+  router.push("/");
+};
+</script>
