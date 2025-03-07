@@ -37,10 +37,10 @@ const hora = ref(now.toISOString().split("T")[1].split(".")[0]); // "HH:MM:SS"
 
 // Método para abrir turno
 const confirmar = async () => {
-  // if (idTurno.value !== 0) {
-  //   console.log("Ya hay un turno abierto");
-  //   return;
-  // }
+  if (idTurno.value !== 0) {
+    console.log("Ya hay un turno abierto");
+    return;
+  }
 
   // Insertar el turno
   const { data, error } = await supabase.from("turnos").insert([
@@ -48,7 +48,6 @@ const confirmar = async () => {
       idusuario: props.userLogin,
       fecha: fecha.value,
       horaapertura: hora.value,
-      horacierre: null,
       montoinicial: montoInicial.value,
 
     },
@@ -61,16 +60,16 @@ const confirmar = async () => {
   console.log("Turno abierto correctamente");
 
   // Obtener el idTurno recién insertado
-  // const { data: turnoAbierto, error: errorTurno } = await supabase
-  //   .from("turno")
-  //   .select("idTurno")
-  //   .eq("horaCierre", null);
+  const { data: turnoAbierto, error: errorTurno } = await supabase
+    .from("turnos")
+    .select("idturno")
+    .is("horacierre", null);
 
-  // if (errorTurno) {
-  //   console.error("Error al obtener turno abierto:", errorTurno.message);
-  // } else if (turnoAbierto && turnoAbierto.length > 0) {
-  //   idTurno.value = turnoAbierto[0].idTurno;
-  // }
+  if (errorTurno) {
+    console.error("Error al obtener turno abierto:", errorTurno.message);
+  } else if (turnoAbierto && turnoAbierto.length > 0) {
+    idTurno.value = turnoAbierto[0].idTurno;
+  }
 
   emit("cerrar");
 };
