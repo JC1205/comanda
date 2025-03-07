@@ -16,25 +16,33 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
+import { supabase } from "@/supabase/supabase";
 
 const router = useRouter();
 const usuario = ref('');
 const password = ref('');
+const userLogin = ref(0);
 
 
-// Prueba de usuarios
-const usuarios = [
-    { username: 'admin', password: '1234' }
-];
+const iniciarSesion = async () => {
+    const { data, error } = await supabase
+        .from("usuarios")
+        .select("idusuario,userName, password")
+        .eq("userName", usuario.value)
+        .single();  // Si solo hay un usuario con ese nombre
 
-const iniciarSesion = () => {
-    const esValido = usuarios.some(u => u.username === usuario.value && u.password === password.value);
+       
+    if (error) {
+       console.error("Error al obtener usuario:", error.message);
+        return;
+    }
 
-    if (esValido) {
+    if (data && data.password === password.value) {
+        localStorage.setItem('userLogin', data.idUsuario);
         router.push('/home');
     } else {
-        console.log('Usuario o contraseña incorrectos');
-        router.push('/')
+        console.log("Usuario o contraseña incorrectos");
+        router.push('/');
     }
 };
 
