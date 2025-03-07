@@ -25,3 +25,35 @@ const salir = () => {
   router.push("/");
 };
 </script>
+
+<style scoped>
+.home-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: #dcdcdc;
+  padding: 15px;
+  gap: 10px;
+}
+
+button {
+  background-color: #ffcc00;
+  border: none;
+  padding: 15px;
+  min-width: 100px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+button:hover {
+  background-color: #e6b800;
+}
+
+.salir-btn {
+  margin-left: auto;
+}
+</style>
