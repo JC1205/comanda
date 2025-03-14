@@ -10,9 +10,11 @@
   </div>
 
   <div class="container">
+    <AbrirTurno :mostrar="mostrarVentana" @cerrar="mostrarVentana = false" />
     <img src="/PIO2.jpeg" alt="">
+    
   </div>
-  <AbrirTurno :mostrar="mostrarVentana" @cerrar="mostrarVentana = false" />
+  
 </template>
 
 <script setup>

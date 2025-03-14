@@ -17,10 +17,10 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from "vue";
+import { supabase } from "@/supabase/supabase";
+import { defineEmits, defineProps, ref } from "vue";
 import VueDraggableResizable from "vue-draggable-resizable";
 import "vue-draggable-resizable/style.css";
-import { supabase } from "@/supabase/supabase";
 
 // Props y eventos
 const props = defineProps(["mostrar", "userLogin"]);
@@ -75,13 +75,10 @@ const confirmar = async () => {
 };
 </script>
   
-
-
-
-
-
+  
   <style scoped>
   .internal-frame {
+    position: fixed;
     background: white;
     border-radius: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);

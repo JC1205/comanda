@@ -6,8 +6,10 @@
             <input type="text" v-model="usuario" placeholder="Usuario">
             <input type="password" v-model="password" placeholder="Contraseña">
         <button @click="iniciarSesion">Iniciar sesión</button>
+        <p class="text-blue-500 font-bold">Si esto es azul, Tailwind funciona.</p>
         </div>
     </div>
+    
 </template>
 
 <script setup>
