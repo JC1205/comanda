@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
 import vue from '@vitejs/plugin-vue'
@@ -22,4 +22,7 @@ export default defineConfig({
       '@views': path.resolve(__dirname, 'src/views'),
     },
   },
+  test: {
+    environment: 'jsdom'
+  }
 })
