@@ -1,15 +1,24 @@
 <template>
-    <div class="login-bg">
-        <div class="login-container">
-            <img src="../PIO.jpg" alt="Logo">
-            <h1>Bienvenido!</h1>
-            <input type="text" v-model="usuario" placeholder="Usuario">
-            <input type="password" v-model="password" placeholder="Contraseña">
-        <button @click="iniciarSesion">Iniciar sesión</button>
-        <p class="text-blue-500 font-bold">Si esto es azul, Tailwind funciona.</p>
+    <div class="flex justify-center items-center h-screen bg-gray-200">
+        <div class="bg-white w-[430px] h-[430px] shadow-lg text-center rounded-xl flex flex-col items-center p-6" @keydown="manejarTeclado">
+            <div v-if="mensajeError" role="alert" class="alert alert-error w-[28%] absolute top-2 flex items-center text-center mx-auto">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span>{{ mensajeError }}</span>
+      </div>
+            <img src="../PIO.jpg" alt="Logo" class="w-20 mt-6">
+
+            <h1 class="text-3xl font-bold mt-2">Bienvenido!</h1>
+
+            <input type="text" v-model="usuario" placeholder="Usuario" class="h-11 w-[300px] mt-5 px-3 text-base border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-400" ref="usuarioInput">
+        
+            <input type="password" v-model="password" placeholder="Contraseña" class="h-11 w-[300px] mt-5 px-3 text-base border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-400" ref="passwordInput">
+
+            <button @click="iniciarSesion" class="bg-yellow-300 h-11 w-[300px] rounded-lg text-base mt-5 transition-transform duration-200 ease-in-out transform hover:scale-105 active:bg-white">Iniciar sesión</button>
+
         </div>
     </div>
-    
 </template>
 
 <script setup>
@@ -21,9 +30,34 @@ const router = useRouter();
 const usuario = ref('');
 const password = ref('');
 const userLogin = ref(0);
+const mensajeError = ref("");
+
+//eventos para manejar con el teclado
+
+const usuarioInput = ref(null);
+const passwordInput = ref(null);
+
+const manejarTeclado = (e) => {
+    if (e.key === "ArrowDown") {
+    if (document.activeElement === usuarioInput.value) {
+        passwordInput.value.focus();
+    }
+    }
+
+    if (e.key === "ArrowUp") {
+    if (document.activeElement === passwordInput.value) {
+        usuarioInput.value.focus();
+    }
+
+    } if (e.key === "Enter") {
+        e.preventDefault();
+        iniciarSesion();
+    }
+};
 
 
 const iniciarSesion = async () => {
+    mensajeError.value = "";
     const { data, error } = await supabase
         .from("usuarios")
         .select("idusuario,userName, password")
@@ -32,88 +66,24 @@ const iniciarSesion = async () => {
 
 
     if (error) {
-       console.error("Error al obtener usuario:", error.message);
-        return;
+    mostrarError("Error al obtener usuario.");
+    return;
     }
 
     if (data && data.password === password.value) {
-        localStorage.setItem('userLogin', data.idUsuario);
+        localStorage.setItem('userLogin', data.idusuario);
         router.push('/home');
     } else {
-        console.log("Usuario o contraseña incorrectos");
+        mostrarError("Usuario o contraseña incorrectos.");
         router.push('/');
     }
 };
 
+const mostrarError = (mensaje) => {
+mensajeError.value = mensaje;
+setTimeout(() => {
+    mensajeError.value = "";
+}, 3000);
+};
+
 </script>
-
-<style scoped>
-*{
-    margin:  0;
-    padding:  0;
-    box-sizing: border-box;
-    font-family: Arial, Helvetica, sans-serif;
-}
-.login-bg{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    background-color: rgb(214, 214, 214);
-    height: 100vh;
-}
-.login-container{
-    background-color: rgb(255, 255, 255);
-    width: 430px;
-    height: 430px;
-    box-shadow: 2px 5px 10px rgba(0, 0, 0, 0.2);
-    text-align: center;
-    border-radius: 10px;
-
-}
-
-button{
-    background-color: rgb(247, 219, 75);
-    height: 45px;
-    width: 300px;
-    border-radius: 13px;
-    border: 0;
-    font-size: 15px;
-    margin-top: 20px;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    cursor: pointer;
-
-}
-
-button:hover {
-    transform:  scale(1.02);
-}
-
-button:active{
-    background-color: rgb(255, 255, 255);
-}
-
-input{
-    height: 45px;
-    width: 300px;
-    margin-top: 20px;
-    padding-left: 10px;
-
-}
-
-img{
-    width: 80px;
-    margin-top: 35px;
-}
-
-h2{
-    font-weight: 700;
-    font-size: 35px;
-    margin-top: 5px;
-
-    
-}
-
-::placeholder{
-    font-size: 15px;
-}
-</style>
