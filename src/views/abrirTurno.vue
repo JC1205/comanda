@@ -21,9 +21,11 @@ import { supabase } from "@/supabase/supabase";
 import { defineEmits, defineProps, ref } from "vue";
 import VueDraggableResizable from "vue-draggable-resizable";
 import "vue-draggable-resizable/style.css";
+import {userLogin} from "@/store/auth.js";
+
 
 // Props y eventos
-const props = defineProps(["mostrar", "userLogin"]);
+const props = defineProps(["mostrar"]);
 const emit = defineEmits(["cerrar"]);
 
 // Variables
@@ -62,13 +64,14 @@ const confirmar = async () => {
 
   if (idTurno.value !== 0) {
     console.log("Ya hay un turno abierto");
+    console.log(userLogin.value);
     return;
   }
 
   // Insertar el turno
   const { data, error } = await supabase.from("turnos").insert([
     {
-      idusuario: props.userLogin,
+      idusuario: userLogin.value,
       fecha: fecha.value,
       horaapertura: hora.value,
       montoinicial: montoInicial.value,
@@ -82,6 +85,7 @@ const confirmar = async () => {
   //Obtiene el turno aierto 
   await obtenerTurno();
   console.log("Turno abierto correctamente");
+  console.log(userLogin.value);
 
   
 

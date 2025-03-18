@@ -16,7 +16,7 @@
             <input type="password" v-model="password" placeholder="Contraseña" class="h-11 w-[300px] mt-5 px-3 text-base border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-400" ref="passwordInput">
 
             <button @click="iniciarSesion" class="bg-yellow-300 h-11 w-[300px] rounded-lg text-base mt-5 transition-transform duration-200 ease-in-out transform hover:scale-105 active:bg-white">Iniciar sesión</button>
-
+            
         </div>
     </div>
 </template>
@@ -25,12 +25,13 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from "@/supabase/supabase";
+import {userLogin} from "@/store/auth.js";//Variable global
 
 const router = useRouter();
 const usuario = ref('');
 const password = ref('');
-const userLogin = ref(0);
 const mensajeError = ref("");
+
 
 //eventos para manejar con el teclado
 
@@ -60,7 +61,7 @@ const iniciarSesion = async () => {
     mensajeError.value = "";
     const { data, error } = await supabase
         .from("usuarios")
-        .select("idusuario,userName, password")
+        .select("idusuario,userName,password")
         .eq("userName", usuario.value)
         .single();  // Si solo hay un usuario con ese nombre
 
@@ -71,6 +72,8 @@ const iniciarSesion = async () => {
     }
 
     if (data && data.password === password.value) {
+        userLogin.value = data.idusuario;
+        console.log(userLogin.value);
         localStorage.setItem('userLogin', data.idusuario);
         router.push('/home');
     } else {
