@@ -66,7 +66,7 @@ const iniciarSesion = async () => {
 
 
     if (error) {
-    mostrarError("Error al obtener usuario.");
+    mostrarError("Usuario o contraseña incorrectos.");
     return;
     }
 
