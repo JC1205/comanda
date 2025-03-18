@@ -17,6 +17,7 @@
 
             <button @click="iniciarSesion" class="bg-yellow-300 h-11 w-[300px] rounded-lg text-base mt-5 transition-transform duration-200 ease-in-out transform hover:scale-105 active:bg-white">Iniciar sesión</button>
             
+            <button v-show = "isVisible" @click="userRapido">Usuario rapido</button>
         </div>
     </div>
 </template>
@@ -31,12 +32,21 @@ const router = useRouter();
 const usuario = ref('');
 const password = ref('');
 const mensajeError = ref("");
+const isVisible = ref(true);
+
+const usuarioInput = ref(null);
+const passwordInput = ref(null);
+
+const userRapido = () => {
+    usuarioInput.value.value = 'abm';
+    passwordInput.value.value = '242717';
+    usuario.value = 'abm';
+    password.value = '242717'
+};
 
 
 //eventos para manejar con el teclado
 
-const usuarioInput = ref(null);
-const passwordInput = ref(null);
 
 const manejarTeclado = (e) => {
     if (e.key === "ArrowDown") {
