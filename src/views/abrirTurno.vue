@@ -21,7 +21,8 @@ import { supabase } from "@/supabase/supabase";
 import { defineEmits, defineProps, ref } from "vue";
 import VueDraggableResizable from "vue-draggable-resizable";
 import "vue-draggable-resizable/style.css";
-import {userLogin} from "@/store/auth.js";
+import {userLogin,turno,obtenerTurno,idTurno} from "@/store/auth.js";
+
 
 
 // Props y eventos
@@ -30,7 +31,7 @@ const emit = defineEmits(["cerrar"]);
 
 // Variables
 const montoInicial = ref(0);
-const idTurno = ref(0);
+
 
 // Fecha y Hora en formato correcto
 const now = new Date();
@@ -38,23 +39,7 @@ const fecha = ref(now.toISOString().split("T")[0]); // "YYYY-MM-DD"
 const hora = ref(now.toISOString().split("T")[1].split(".")[0]); // "HH:MM:SS"
 
 
-const obtenerTurno = async () => {
-  const { data: turnoAbierto, error } = await supabase
-    .from("turnos")
-    .select("idturno")
-    .is("horacierre", null);
 
-  if (error) {
-    console.error("Error al obtener turno abierto:", error);
-    return;
-  }
-
-  if (turnoAbierto?.length > 0) {
-    idTurno.value = turnoAbierto[0].idturno; // Asegúrate de usar el nombre correcto
-  } else {
-    console.log("No hay turno abierto.");
-  }
-};
 
 // Método para abrir turno
 const confirmar = async () => {
@@ -62,7 +47,7 @@ const confirmar = async () => {
   // Obtiene turno si hay uno ya existente
   await obtenerTurno();
 
-  if (idTurno.value !== 0) {
+  if (turno.value) {
     console.log("Ya hay un turno abierto");
     console.log(userLogin.value);
     return;
@@ -85,9 +70,7 @@ const confirmar = async () => {
   //Obtiene el turno aierto 
   await obtenerTurno();
   console.log("Turno abierto correctamente");
-  console.log(userLogin.value);
-
-  
+  turno.value = true;
 
   emit("cerrar");
 };

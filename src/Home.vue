@@ -4,7 +4,7 @@
     <button @click="">Domicilio</button>
     <button @click="">Retiro y <br> depósito</button>
     <button @click="">Consultar <br> citas</button>
-    <button @click="mostrarVentana = true">Abrir turno</button>
+    <button @click="abrirPestana()">Abrir turno</button>
     <button @click="">Cerrar turno</button>
     <button @click="salir">Salir</button>
   </div>
@@ -21,10 +21,22 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import AbrirTurno from "@/views/abrirTurno.vue";
+import {turno, obtenerTurno} from "@/store/auth.js";
+//import { obtenerTurno } from "./views/abrirTurno.vue";
 
 // Estado
 const mostrarVentana = ref(false);
 const router = useRouter();
+
+const abrirPestana = () =>{
+  if(!turno.value){
+    mostrarVentana.value = true;
+  }else{
+    console.log("Ya hay un turno abierto");//Alerta de que ya hay un turno
+  }
+
+};
+
 
 const salir = () => {
   router.push("/");
