@@ -8,7 +8,12 @@
       <span>¡Turno registrado correctamente!</span>
     </div>
 
-    <vue-draggable-resizable :w="300" :h="200" :x="100" :y="100" :resizable="false">
+    <vue-draggable-resizable 
+  :w="300" 
+  :h="200" 
+  :x="window.innerWidth / 2 - 150" 
+  :y="window.innerHeight / 2 - 170" 
+  :resizable="false">
       <div class="internal-frame">
         <div class="header">
           Abrir turno
@@ -40,6 +45,7 @@ const emit = defineEmits(["cerrar"]);
 // Variables
 const montoInicial = ref(0);
 const alertaVisible = ref(false);
+const window = ref(globalThis.window);
 
 
 // Fecha y Hora en formato correcto
