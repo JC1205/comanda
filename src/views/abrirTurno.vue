@@ -1,5 +1,13 @@
 <template>
   <div v-if="mostrar">
+
+    <div v-if="alertaVisible" role="alert" class="alert alert-success">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>¡Turno registrado correctamente!</span>
+    </div>
+
     <vue-draggable-resizable :w="300" :h="200" :x="100" :y="100" :resizable="false">
       <div class="internal-frame">
         <div class="header">
@@ -31,6 +39,7 @@ const emit = defineEmits(["cerrar"]);
 
 // Variables
 const montoInicial = ref(0);
+const alertaVisible = ref(false);
 
 
 // Fecha y Hora en formato correcto
@@ -41,36 +50,33 @@ const hora = ref(now.toISOString().split("T")[1].split(".")[0]); // "HH:MM:SS"
 
 
 
-// Método para abrir turno
 const confirmar = async () => {
-
-  // Obtiene turno si hay uno ya existente
   await obtenerTurno();
 
   if (turno.value) {
     console.log("Ya hay un turno abierto");
-    console.log(userLogin.value);
     return;
   }
 
-  // Insertar el turno
   const { data, error } = await supabase.from("turnos").insert([
     {
       idusuario: userLogin.value,
       fecha: fecha.value,
       horaapertura: hora.value,
       montoinicial: montoInicial.value,
-
     },
   ]);
+
   if (error) {
     console.error("Error:", error.message);
     return;
   }
-  //Obtiene el turno aierto 
+
   await obtenerTurno();
-  console.log("Turno abierto correctamente");
   turno.value = true;
+
+  // Emitir evento a Home para mostrar alerta
+  emit("turnoAbierto");
 
   emit("cerrar");
 };
@@ -90,7 +96,7 @@ const confirmar = async () => {
   }
   
   .header {
-    background: #c7eb52;
+    background: rgb(247, 219, 75);
     color: rgb(0, 0, 0);
     padding: 5px;
     text-align: center;
@@ -98,13 +104,15 @@ const confirmar = async () => {
   }
   
   .close-btn {
+    width: 20px;
+    height: 25px;
     position: absolute;
     right: 5px;
-    top: 1px;
+    top: 5px;
     background: red;
     color: white;
     border: none;
-    padding: 4px;
+    
     cursor: pointer;
     border-radius: 5px;
   }
