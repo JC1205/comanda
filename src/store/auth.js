@@ -6,12 +6,13 @@ import { supabase } from "@/supabase/supabase";
 export const userLogin = ref(localStorage.getItem("userLogin") || 0);
 export const turno = ref(localStorage.getItem("turno") || 0);
 export const idTurno = ref(localStorage.getItem("turno") || 0);
+export const resultadoLogin = ref(localStorage.getItem("resultadoLogin") || 0);
 
 export const obtenerTurno = async () => {
     const { data: turnoAbierto, error } = await supabase
       .from("turnos")
       .select("idturno")
-      .is("horacierre", null);
+      .eq("horacierre", null);
   
     if (error) {
       console.error("Error al obtener turno abierto:", error);

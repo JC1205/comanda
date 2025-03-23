@@ -26,7 +26,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { supabase } from "@/supabase/supabase";
-import {userLogin,obtenerTurno} from "@/store/auth.js";//Variable global
+import {userLogin,obtenerTurno,resultadoLogin} from "@/store/auth.js";//Variable global
 
 const router = useRouter();
 const usuario = ref('');
@@ -86,10 +86,12 @@ const iniciarSesion = async () => {
         console.log(userLogin.value);
         localStorage.setItem('userLogin', data.idusuario);
         obtenerTurno();
+        resultadoLogin.value = 'Inicio sesion correcto';
         router.push('/home');
 
     } else {
         mostrarError("Usuario o contraseña incorrectos.");
+        resultadoLogin.value = 'Credenciales Incorrectas';
         router.push('/');
     }
 };
