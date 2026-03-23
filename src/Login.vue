@@ -56,10 +56,10 @@
 </template>
 
 <script setup>
+import { obtenerTurno, resultadoLogin, userLogin } from "@/store/auth.js";
+import { supabase } from "@/supabase/supabase";
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { supabase } from "@/supabase/supabase";
-import { userLogin, obtenerTurno, resultadoLogin } from "@/store/auth.js";
 
 const router = useRouter();
 
@@ -222,6 +222,7 @@ form {
 }
 
 label {
+    font-weight: 500;
   font-size: 13px;
   color: #000000;
   margin-bottom: 15px;
@@ -229,8 +230,8 @@ label {
 
 input {
   height: 42px;
-  border-radius: 12px;
-  border: 1px solid #b2b2b2;
+  border-radius: 25px;
+  border: 1px solid #000000;
   padding: 0 12px;
   margin-bottom: 15px;
   outline: none;
@@ -246,21 +247,22 @@ input:focus {
 
 /* BOTÓN */
 button {
-  margin-top: 25px;
+  margin-top: 35px;
   height: 45px;
   border: none;
-  border-radius: 14px;
+  border-radius: 25px;
   font-size: 16px;
   color: white;
   cursor: pointer;
 
-  background: linear-gradient(90deg, #ec9146, #e9de6a);
+  background: rgb(236, 197, 134);
 
   transition: all 0.3s ease;
 }
 
 /* HOVER BOTÓN */
 button:hover {
+    background: #000000;
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(0,0,0,0.15);
 }
