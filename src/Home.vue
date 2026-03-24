@@ -25,7 +25,7 @@
         </div>
 
         <div class="menu-item" :class="{ active: vistaActiva === 'turno' }" @click="abrirPestana">
-          <img src="/candado-abierto.png" class="icon">
+          <img src="/clock.png" class="icon">
           <span>Turnos</span>
         </div>
 
@@ -57,8 +57,8 @@
       </div>
 
       <div class="menu-footer" @click="salir">
-        <img src="/circle-x.png" class="icon">
-        <span>Cerrar sesión</span>
+      <CircleX class="icon" />
+      <span>Cerrar sesión</span>
       </div>
     </aside>
 
@@ -79,8 +79,8 @@
         <div class="overlay"></div>
 
         <!-- Vista Home -->
-        <transition name="hero-anim">
-          <div v-if="vistaActiva === 'home'" class="hero-content">
+        <transition name="hero-anim" appear>
+            <div v-if="vistaActiva === 'home'" class="hero-content">
             <h1>Serve <span>faster.</span><br>Manage <span>smarter.</span></h1>
             <div class="logo-center"></div>
             <p>Everything your restaurant needs, in one place.</p>
@@ -152,6 +152,7 @@ import retiros from "./views/retiros.vue";
 import corte from "./views/corte.vue";
 import domicilio from "./views/domicilio.vue";
 import { turno } from "@/store/auth.js";
+import { CircleX } from 'lucide-vue-next';
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
 const vistaActiva = ref('home');
@@ -261,30 +262,31 @@ const salir = () => { router.push("/"); };
   transform: translateX(4px);
 }
 
-.menu-item.active {
-  background: #e8c3a5;
-  font-weight: 500;
-}
-
 .icon {
   width: 20px;
   height: 20px;
 }
 
 .menu-footer {
+  margin-top: auto;
   display: flex;
   align-items: center;
   gap: 14px;
   cursor: pointer;
   border-radius: 10px;
   margin-left: 8px;
-  padding: 12px 24px;
+  padding-top: 20px;
   padding-left: 35px;
   border-top: 2px solid #eee;
-  color: #424242;
+  color: #ff8383;
   font-size: 14px;
 }
 
+.menu-footer:hover{
+  color: #000;
+  transition: all 0.3s ease;
+  transform: translateX(4px);
+}
 /* MAIN */
 .main {
   flex: 1;
@@ -410,16 +412,19 @@ const salir = () => { router.push("/"); };
 .alert {
   position: fixed;
   top: 20px;
-  left: 50%;
+  left: 58%;
   transform: translateX(-50%);
   padding: 14px 22px;
   border-radius: 12px;
   color: white;
   z-index: 200;
+  border: none;
+  outline: none;
+
 }
 
-.alert.error  { background: #ff5f5f; }
-.alert.success { background: #22c55e; }
+.alert.error  { background: #f87f7f; }
+.alert.success { background: #50cc7d; }
 
 /* ANIMACIONES */
 .fade-slide-enter-active,
