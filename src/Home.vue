@@ -69,7 +69,7 @@
       <div class="topbar">
         <div class="title">{{ tituloActivo }}</div>
         <div class="user">
-          Usuario: JC<br>
+          Usuario: {{ userName }}<br>
           Martes, 28 Mar 2026
         </div>
       </div>
@@ -151,7 +151,7 @@ import impresoras from "./views/impresoras.vue";
 import retiros from "./views/retiros.vue";
 import corte from "./views/corte.vue";
 import domicilio from "./views/domicilio.vue";
-import { turno } from "@/store/auth.js";
+import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
@@ -214,7 +214,7 @@ function handleClickOutside(event) {
   }
 }
 
-onMounted(() => { window.addEventListener('click', handleClickOutside); });
+onMounted(() => { window.addEventListener('click', handleClickOutside); console.log("Nombre de usuario:", userName.value); });
 onBeforeUnmount(() => { window.removeEventListener('click', handleClickOutside); });
 
 const router = useRouter();

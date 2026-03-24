@@ -4,6 +4,7 @@ import { supabase } from "@/supabase/supabase";
 
 // Variable global para el usuario logueado
 export const userLogin = ref(localStorage.getItem("userLogin") || 0);
+export const userName = ref(localStorage.getItem("userName") || "");
 export const turno = ref(localStorage.getItem("turno") || 0);
 export const idTurno = ref(localStorage.getItem("idTurno") || 0);
 export const resultadoLogin = ref(localStorage.getItem("resultadoLogin") || 0);

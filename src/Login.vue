@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { obtenerTurno, resultadoLogin, userLogin } from "@/store/auth.js";
+import { obtenerTurno, resultadoLogin, userLogin, userName } from "@/store/auth.js";
 import { supabase } from "@/supabase/supabase";
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -124,6 +124,7 @@ const iniciarSesion = async () => {
 
   if (data && data.password === password.value) {
     userLogin.value = data.idusuario;
+    userName.value = data.userName;
     localStorage.setItem('userLogin', data.idusuario);
 
     obtenerTurno();
