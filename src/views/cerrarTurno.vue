@@ -30,10 +30,11 @@
                     <td>{{ item.descripcion }}</td>
                     <td>
                     <input
-                    type="number"
-                    v-model.number="item.importe"
-                    class="input-importe"
-                    placeholder="$0.00"/>
+                    type="text"
+                    inputmode="decimal"
+                    v-model="item.importe"
+                    @input="(e) => actualizarImporte(e, index)"
+                   />
                     </td>
                     </tr>
                 </tbody>
@@ -74,7 +75,38 @@ const window = ref(globalThis.window);
 // Fecha y Hora en formato correcto
 const now = new Date();
 const fecha = ref(now.toISOString().split("T")[0]);
-const hora = ref(now.toISOString().split("T")[1].split(".")[0]);
+const hora = ref(now.toTimeString().split(" ")[0]);
+
+const actualizarImporte = (e, index) => {
+  let valor = e.target.value
+    .replace(/[^0-9.]/g, '')
+    .replace(/(\..*)\./g, '$1');
+
+  caja.value[index].importe = valor === '' ? null : Number(valor);
+
+  e.target.value = valor; // importante para que no "rebote"
+};
+
+const soloNumeros = (e, index) => {
+  // Elimina todo lo que no sea número o punto decimal
+  let valor = e.target.value.replace(/[^0-9.]/g, '');
+  
+  // Evita más de un punto decimal
+  const partes = valor.split('.');
+  if (partes.length > 2) {
+    valor = partes[0] + '.' + partes.slice(1).join('');
+  }
+
+  caja.value[index].importe = valor === '' ? null : Number(valor);
+  e.target.value = valor;
+};
+
+function bloquearTeclas(event) {
+    if(["e", "E", "+" , "-"].includes(event.key)) {
+        event.preventDefault()
+        return
+    }
+}
 
 //tabla
 const caja = ref([
