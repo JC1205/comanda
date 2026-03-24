@@ -27,26 +27,44 @@
         </p>
 
         <form @submit.prevent="iniciarSesion">
-          <label>Username</label>
-          <input 
-            type="text" 
-            v-model="usuario"
-            ref="usuarioInput"
-          >
+          <div class="input-icon">
+    <!-- icono usuario -->
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21a8 8 0 0 0-16 0"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
 
-          <label>Password</label>
-          <input 
-            type="password" 
-            v-model="password"
-            ref="passwordInput"
-          >
+    <input 
+      type="text" 
+      v-model="usuario"
+      ref="usuarioInput"
+      placeholder="Enter username"
+    >
+  </div>
+
+  <label>Password</label>
+  <div class="input-icon">
+    <!-- icono candado -->
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none"
+      stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2"/>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+
+    <input 
+      type="password" 
+      v-model="password"
+      ref="passwordInput"
+      placeholder="Enter password"
+    >
+  </div>
 
           <button type="submit">Log in</button>
         </form>
 
         <p class="register">
-          Don’t have an account?
-          <a href="#">Register now</a>
+           © 2026 Comanda. All rights reserved.
         </p>
 
       </div>
@@ -211,7 +229,7 @@ body {
 
 .subtitle {
   font-size: 14px;
-  color: #888;
+  color: #000000;
   margin-bottom: 30px;
 }
 
@@ -231,11 +249,10 @@ label {
 input {
   height: 42px;
   border-radius: 25px;
-  border: 1px solid #000000;
+  border: 1px solid #939393;
   padding: 0 12px;
   margin-bottom: 15px;
   outline: none;
-
   transition: all 0.25s ease;
 }
 
@@ -245,10 +262,55 @@ input:focus {
   box-shadow: 0 0 0 3px rgba(244, 162, 97, 0.2);
 }
 
+input::placeholder {
+  color: #b9b9b9;
+  font-size: 14px;
+}
+
+
+.input-icon {
+  display: flex;
+  align-items: center;
+  border: 1px solid #939393;
+  border-radius: 25px;
+  padding: 0 12px;
+  margin-bottom: 15px;
+  height: 50px;
+  transition: all 0.25s ease;
+}
+
+
+.input-icon input {
+  border: none;
+  box-shadow: none;
+  margin-bottom: 0;
+  padding: 0 8px;
+  height: 100%;
+  background: transparent;
+}
+
+
+.input-icon:focus-within {
+  border-color: #f4a261;
+  box-shadow: 0 0 0 3px rgba(244, 162, 97, 0.2);
+}
+
+
+.input-icon svg {
+  width: 25px;
+  height: 25px;
+  color: #939393;
+}
+
+
+.input-icon:focus-within svg {
+  color: #f4a261;
+}
+
 /* BOTÓN */
 button {
   margin-top: 35px;
-  height: 45px;
+  height: 50px;
   border: none;
   border-radius: 25px;
   font-size: 16px;
@@ -270,20 +332,11 @@ button:hover {
 /* REGISTER */
 .register {
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   margin-top: 20px;
-  color: #777;
+  color: #919191;
 }
 
-.register a {
-  color: #f4a261;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.register a:hover {
-  text-decoration: underline;
-}
 
 /* ANIMACIONES */
 @keyframes slideIn {
@@ -366,4 +419,6 @@ button:hover {
   opacity: 0;
   transform: translate(-50%, -20px);
 }
+
+
 </style>

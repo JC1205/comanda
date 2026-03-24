@@ -8,10 +8,10 @@
         <div class="card-icon-header">
           <div class="icon-wrap">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
+            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+          </svg>
           </div>
           <div>
             <h2 class="card-title">Control de Turno</h2>
@@ -36,9 +36,7 @@
 
         <div class="btn-group">
           <button class="btn-confirmar" @click="confirmar">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
+          
             Abrir Turno
           </button>
         </div>
@@ -64,39 +62,22 @@
 
         <div class="divider" />
 
-        <table class="tabla-cierre">
-          <thead>
-            <tr>
-              <th>Clave</th>
-              <th>Descripción</th>
-              <th>Importe</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, index) in caja" :key="index">
-              <td class="td-clave">{{ item.clave }}</td>
-              <td>{{ item.descripcion }}</td>
-              <td>
-                <div class="input-wrap input-wrap--sm">
-                  <span class="input-prefix">$</span>
-                  <input
-                    type="number"
-                    v-model.number="item.importe"
-                    placeholder="0.00"
-                    class="field-input"
-                  />
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="field-row" v-for="(item, index) in caja" :key="index">
+  <label class="field-label-row">{{ item.descripcion }}</label>
+
+  <div class="input-wrap">
+    <span class="input-prefix">$</span>
+    <input
+      type="number"
+      v-model.number="item.importe"
+      placeholder="0.00"
+      class="field-input"
+    />
+  </div>
+</div>
 
         <div class="btn-group">
           <button class="btn-cerrar" @click="confirmarCierre">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
             Cerrar Turno
           </button>
         </div>
@@ -210,17 +191,17 @@ const confirmarCierre = async () => {
   width: 52px;
   height: 52px;
   border-radius: 14px;
-  background: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #888;
+  color: #63e490;
+  background-color: #cfffe0;
   flex-shrink: 0;
 }
 
 .icon-wrap--active {
-  background: #e6f9ee;
-  color: #22c55e;
+  background: #ffdcdc;
+  color: #c56a6a;
 }
 
 .card-title {
@@ -266,7 +247,7 @@ const confirmarCierre = async () => {
 }
 
 .input-wrap:focus-within {
-  border-color: #22c55e;
+  border-color: #3cd677;
 }
 
 .input-wrap--sm {
@@ -274,7 +255,7 @@ const confirmarCierre = async () => {
 }
 
 .input-prefix {
-  padding: 0 12px;
+  padding: 12px;
   font-size: 15px;
   color: #aaa;
   background: #fafafa;
@@ -354,26 +335,24 @@ const confirmarCierre = async () => {
 
 .btn-confirmar {
   flex: 1;
-  background: #22c55e;
+  background: #48e180;
   color: #fff;
 }
 
 .btn-confirmar:hover {
-  background: #16a34a;
+  background: #31b05f;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.35);
 }
 
 .btn-cerrar {
   flex: 1;
-  background: #ef4444;
+  background: #ed6c6c;
   color: #fff;
 }
 
 .btn-cerrar:hover {
-  background: #dc2626;
+  background: #df4848;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
 }
 
 /* ── Transición entre vistas ───────────────────────────────── */
@@ -390,5 +369,27 @@ const confirmarCierre = async () => {
 .panel-fade-leave-to {
   opacity: 0;
   transform: translateY(-12px);
+}
+
+
+/* fila horizontal */
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* label izquierda */
+.field-label-row {
+  font-size: 14px;
+  color: #555;
+  min-width: 140px;
+}
+
+/* input derecha */
+.field-row .input-wrap {
+  flex: 1;
+  max-width: 200px;
 }
 </style>
