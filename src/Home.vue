@@ -70,7 +70,7 @@
         <div class="title">{{ tituloActivo }}</div>
         <div class="user">
           Usuario: {{ userName }}<br>
-          Martes, 28 Mar 2026
+          {{ fecha.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' }) }}
         </div>
       </div>
 
@@ -167,6 +167,8 @@ const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
 const setVista = (vista) => {
   vistaActiva.value = vista;
 };
+
+const fecha = new Date();
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);
