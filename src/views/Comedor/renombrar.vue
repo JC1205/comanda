@@ -1,251 +1,189 @@
 <template>
-    <div v-if="mostrar">
-        <vue-draggable-resizable
-        :w="280"
-        :h="265"
-        :x="window.innerWidth / 2 - 150"
-        :y="window.innerHeight / 2 - 170"
-        :resizable="false"
-        class="custom-draggable">
-            <div class="internal-frame">
-                <div class="header">Renombrar cuenta
-                    <button class="close-btn" @click="$emit('cerrar')">X</button>
-                </div>
-                    <div class="content">
-                        <p>Nombre actual:</p>
-                        <input v-model="nombreActual" type="text" class="border-2 w-[295px] mt-4" readonly/>
-                        <p class="nuevo">Nombre nuevo:</p>
-                        <input v-model="nombreNuevo" type="text" class="border-2 w-[295px] mt-4" />
-                        <div class="button-group">
-                    <button @click="upNombrePedido()" class="button">Confirmar</button>
-                    <button @click="$emit('cerrar')" class="cancel-btn">Cancelar</button>
-                        </div>
-                    </div>
-            </div>
-        </vue-draggable-resizable>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><Pencil :size="18" /></div>
+          <span>Renombrar cuenta</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="16" /></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">Nombre actual</label>
+          <input v-model="nombreActual" type="text" class="field-input field-input--readonly" readonly />
+        </div>
+        <div class="field-group" style="margin-top: 12px;">
+          <label class="field-label">Nombre nuevo</label>
+          <input v-model="nombreNuevo" type="text" class="field-input" placeholder="Nuevo nombre..." />
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="$emit('cerrar')">Cancelar</button>
+        <button class="btn-confirm" @click="upNombrePedido()">Confirmar</button>
+      </div>
     </div>
+  </div>
 </template>
 
 <script setup>
-    import { supabase } from "@/supabase/supabase";
-    import { defineEmits, defineProps, ref, onMounted, watch } from "vue";
-    import VueDraggableResizable from "vue-draggable-resizable";
-    import "vue-draggable-resizable/style.css";
-    import { idPedido } from "@/store/auth.js";
+import { supabase } from "@/supabase/supabase";
+import { defineEmits, defineProps, ref, onMounted, watch } from "vue";
+import { idPedido } from "@/store/auth.js";
+import { Pencil, X } from "lucide-vue-next";
 
+const props = defineProps(["mostrar"]);
+const emit  = defineEmits(["cerrar", "actualizado"]);
 
+const nombreActual = ref(null);
+const nombreNuevo  = ref(null);
+const pedido       = ref([]);
 
-  // Props y eventos
-    const props = defineProps(["mostrar"]);
-    const emit = defineEmits(["cerrar","actualizado"]);
+const cargarPedido = async () => {
+  const { data } = await supabase
+    .from("pedidos").select().eq("idpedido", idPedido.value);
+  pedido.value = data[0];
+  nombreActual.value = pedido.value?.nombre;
+};
 
-  // Variables
-    const window = ref(globalThis.window);
+const upNombrePedido = async () => {
+  if (!nombreNuevo.value) { console.error("Ingrese nombre nuevo"); return; }
 
-    const nombreActual = ref(null);
-    const nombreNuevo = ref(null);
-    const pedido = ref([]);
+  const { data: dataPedidos, error: errorPedidos } = await supabase
+    .from("pedidos").select().eq("abierto", true);
+  if (errorPedidos) { console.error("Error al obtener pedidos", errorPedidos); return; }
 
-    const cargarPedido = async () => {
-        const { data } = await supabase
-            .from('pedidos')
-            .select()
-            .eq('idpedido', idPedido.value);
+  const existe = dataPedidos.find(u => u.nombre === nombreNuevo.value);
+  if (existe) { console.log("Ya existe una cuenta con ese nombre"); return; }
 
-        pedido.value = data[0];
-    };
+  const { error } = await supabase
+    .from("pedidos")
+    .update({ nombre: nombreNuevo.value })
+    .eq("idpedido", idPedido.value);
 
-    const upNombrePedido = async () => {
-        if(nombreNuevo.value === null){
-            console.error("Ingrese nombre nuevo");
-            return;
-        }
-        const { data: dataPedidos, error: errorPedidos } = await supabase
-            .from('pedidos')
-            .select()
-            .eq('abierto', true);
-        
-        if(errorPedidos){
-            console.error("Error al obtener pedidos ", errorPedidos);
-            return;
-        }
+  if (error) { console.error("Error al actualizar nombre", error); return; }
 
-        const existe = dataPedidos.find(u => u.nombre === nombreNuevo.value);
+  emit("actualizado");
+  limpiarCampos();
+  emit("cerrar");
+};
 
-        if(existe){
-            console.log("Ya existe una cuenta con ese nombre");
-            return;
-        }
+const limpiarCampos = () => { nombreActual.value = null; nombreNuevo.value = null; };
 
-        const { data, error} = await supabase
-            .from('pedidos')
-            .update({
-                nombre: nombreNuevo.value
-            })
-            .eq('idpedido', idPedido.value);
-        if(error){
-            console.error("Error al actualizar nombre ",error);
-            return;
-        }
-        console.log("Nombre actualizado");
-        
-        emit('actualizado');
-        limpiarCampos();
-        emit('cerrar');
-    };
-    
-    const limpiarCampos = () => {
-        nombreActual.value = null;
-        nombreNuevo.value = null;
-    };
-
-
-
-    watch(idPedido, (newValue) => {
-        if (newValue !== null && newValue !== undefined) {
-            cargarPedido();
-            nombreActual.value = pedido.value.nombre;          
-        }
-    }, { immediate: true });
-
-    onMounted(() => {
-        if(idPedido){
-            cargarPedido();
-            nombreActual.value = pedido.value.nombre;
-        }
-        
-    });
-
-
+watch(idPedido, (val) => { if (val != null) cargarPedido(); }, { immediate: true });
+onMounted(() => { if (idPedido.value) cargarPedido(); });
 </script>
 
 <style scoped>
-    /*Para quitar las flechas del spinner*/
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-    }
-    .custom-draggable {
-        outline: none !important;
-        border: none !important;
-    }
-  /* Estilos para eliminar líneas punteadas de vue-draggable-resizable */
-    .custom-draggable {
-        outline: none !important;
-        border: none !important;
-    }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
 
-    .custom-draggable > div {
-    outline: none !important;
-    border: none !important;
-    }
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14);
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-    .vue-draggable-resizable .handle {
-    display: none !important;
-    }
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
 
-    .vue-draggable-resizable .handle-tl,
-    .vue-draggable-resizable .handle-tr,
-    .vue-draggable-resizable .handle-bl,
-    .vue-draggable-resizable .handle-br {
-    display: none !important;
-    }
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
 
-    .internal-frame {
-        outline: none;
-        position: fixed;
-        background: white;
-        border: 1px solid #ccc;
-        border-radius: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        width: 120%;
-        height: 110%;
-        display: flex;
-        flex-direction: column;
-    }
+.modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #ede9fe;
+  color: #7c3aed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-    .header {
-        background: rgb(247, 219, 75);
-        color: white;
-        padding: 5px 20px;
-        font-weight: bold;
-        border-top-left-radius: 15px;
-        border-top-right-radius: 15px;
-        position: relative;
-        text-align: left;
-    }
+.close-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: background 0.15s;
+}
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-    .close-btn {
-        padding: 0 !important;
-        width: 21px;
-        height: 21px;
-        position: absolute;
-        right: 2px;
-        top: 2px;
-        bottom: 2px;
-        background: red;
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-top: 4px;
-        margin-right: 4px;
-        font-size: 13px;
-    }
+.modal-body { padding: 20px; }
 
-    .close-btn:hover{
-        background-color: rgb(209, 0, 0);
-    }
-    .content {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 20px;
-    }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
 
-    .button-group {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 25px;
-        margin-left: 20px;
-        margin-right: 33px;
-    }
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
-    button {
-        width: 110px;
-        padding: 5px 15px;
-        border: none;
-        background-color: rgb(130, 165, 243);
-        color: white;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    .button:hover {
-        background-color: rgb(105, 133, 194);
-    }
+.field-input {
+  padding: 10px 14px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.field-input:focus { border-color: #7c3aed; }
+.field-input--readonly { background: #fafafa; color: #999; cursor: default; }
 
-    .cancel-btn {
-        background-color: rgb(126 ,126, 126);
-    }
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
 
-    .cancel-btn:hover {
-        background-color: rgb(92, 92, 92);
-    }
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
 
-    input {
-    padding-left: 10px;
-    padding: 5px;
-    border: 1px solid #b4b4b4;
-    border-radius: 4px;
-    margin-top: 10px;
-    }
-
-    .nuevo{
-        padding-top: 15px;
-    }
+.btn-cancel  { background: #f5f5f5; color: #555; }
+.btn-cancel:hover  { background: #eee; }
+.btn-confirm { background: #7c3aed; color: #fff; }
+.btn-confirm:hover { background: #6d28d9; }
 </style>

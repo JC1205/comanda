@@ -14,15 +14,10 @@
           <span>Home</span>
         </div>
 
-        <div class="menu-item" @click="abrirComedor">
-          <img src="/mesa.png" class="icon">
-          <span>Comedor</span>
-        </div>
-
-        <div class="menu-item" @click="abrirDomicilio">
-          <img src="/moto.png" class="icon">
-          <span>Domicilio</span>
-        </div>
+    <div class="menu-item" :class="{ active: vistaActiva === 'pedidos' }" @click="abrirPedidos">
+      <img src="/utensils.png" class="icon">
+      <span>Pedidos</span>
+    </div>
 
         <div class="menu-item" :class="{ active: vistaActiva === 'turno' }" @click="abrirPestana">
           <img src="/clock.png" class="icon">
@@ -84,7 +79,7 @@
             <h1>Serve <span>faster.</span><br>Manage <span>smarter.</span></h1>
             <div class="logo-center"></div>
             <p>Everything your restaurant needs, in one place.</p>
-            <button class="btn" @click="abrirComedor">Start Order</button>
+            <button class="btn" @click="abrirPedidos">Start Order</button>
           </div>
         </transition>
 
@@ -99,6 +94,12 @@
             />
           </div>
         </transition>
+
+            <transition name="panel-fade">
+      <div v-if="vistaActiva === 'pedidos'" class="hero-panel">
+        <GestorPedidos />
+      </div>
+    </transition>
 
       </section>
     </main>
@@ -131,11 +132,11 @@
     <!-- MODALES FLOTANTES (NO TOCAR) -->
     <aggProductos :mostrar="mostrarAggProductos" @cerrar="mostrarAggProductos = false" />
     <aggUsuarios  :mostrar="mostrarAggUsuarios"  @cerrar="mostrarAggUsuarios = false" />
-    <comedor      :mostrar="mostrarComedor"      @cerrar="mostrarComedor = false" />
+
     <impresoras   :mostrar="mostrarImpresoras"   @cerrar="mostrarImpresoras = false" />
     <retiros      :mostrar="mostrarRetiros"      @cerrar="mostrarRetiros = false" />
     <corte        :mostrar="mostrarCorte"        @cerrar="mostrarCorte = false" />
-    <domicilio    :mostrar="mostrarDomicilio"    @cerrar="mostrarDomicilio = false" />
+
 
   </div>
 </template>
@@ -144,15 +145,16 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import aggProductos from "./views/aggProductos.vue";
-import comedor from "./views/comedor.vue";
+
 import aggUsuarios from "./views/aggUsuarios.vue";
 import GestorTurno from "@/views/GestorTurno.vue";
 import impresoras from "./views/impresoras.vue";
 import retiros from "./views/retiros.vue";
 import corte from "./views/corte.vue";
-import domicilio from "./views/domicilio.vue";
+
 import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
+import GestorPedidos  from "@/views/GestorPedidos.vue";
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
 const vistaActiva = ref('home');
@@ -160,6 +162,7 @@ const vistaActiva = ref('home');
 const titulos = {
   home:  'Home',
   turno: 'Turnos',
+  pedidos: 'Pedidos',
 };
 
 const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
@@ -169,6 +172,8 @@ const setVista = (vista) => {
 };
 
 const fecha = new Date();
+
+const abrirPedidos = () => setVista('pedidos');
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);

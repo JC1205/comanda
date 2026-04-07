@@ -1,542 +1,451 @@
 <template>
-  <div v-if="mostrar">
-    <vue-draggable-resizable
-      :w="1060"
-      :h="520"
-      :x="windowWidth / 2 - 150"
-      :y="windowHeight / 2 - 200"
-      :resizable="false"
-      class="custom-draggable"
-    >
-      <div class="internal-frame">
-        <div class="header">
-          Captura
-          <button class="close-btn" @click="$emit('cerrar');limpiar()">X</button>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><ShoppingCart :size="18" /></div>
+          <span>Captura de productos</span>
         </div>
-        <div class="content layout">
-          <!-- Carrito de compras -->
-          <div class="carrito">
-            <div class="tabla-wrapper">
-              <table class="tabla">
-                <thead>
-                  <tr>
-                    <th>Cantidad</th>
-                    <th>Descripción</th>
-                    <th>Precio</th>
-                    <th>Acción</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(item, index) in carrito" :key="index">
-                    <td>{{ item.cantidad }}</td>
-                    <td>
-                      {{ item.descripcion }}
-                      <ul v-if="item.modificadores && item.modificadores.length">
-                        <li v-for="(mod, i) in item.modificadores" :key="i">
-                          → {{ mod.nombre }} <span v-if="mod.precio">(+{{ mod.precio }})</span>
-                        </li>
-                      </ul>
-                    </td>
-                    <td>
-                      {{ item.precio }}
-                    </td>
-                    <td class="accion-cell">
-                      <button class="remove-btn" @click="eliminarDelCarrito(index)">🗑</button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+        <button class="close-btn" @click="$emit('cerrar'); limpiar()"><X :size="16" /></button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Panel izquierdo: carrito -->
+        <div class="carrito-panel">
+          <p class="panel-label">Carrito</p>
+          <div class="tabla-wrapper">
+            <table class="tabla-carrito">
+              <thead>
+                <tr>
+                  <th>Cant.</th>
+                  <th>Descripción</th>
+                  <th>Precio</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in carrito" :key="index">
+                  <td>{{ item.cantidad }}</td>
+                  <td>
+                    {{ item.descripcion }}
+                    <ul v-if="item.modificadores?.length" class="mod-list">
+                      <li v-for="(mod, i) in item.modificadores" :key="i">
+                        → {{ mod.nombre }}<span v-if="mod.precio"> (+{{ mod.precio }})</span>
+                      </li>
+                    </ul>
+                  </td>
+                  <td>{{ item.precio }}</td>
+                  <td>
+                    <button class="remove-btn" @click="eliminarDelCarrito(index)">
+                      <Trash2 :size="13" />
+                    </button>
+                  </td>
+                </tr>
+                <tr v-if="!carrito.length">
+                  <td colspan="4" class="tabla-empty">Sin productos</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Panel derecho: selección -->
+        <div class="selector-panel">
+          <!-- Grupos -->
+          <div class="section">
+            <p class="panel-label">Grupos</p>
+            <div class="btn-grid">
+              <button
+                v-for="grupo in grupos"
+                :key="grupo.idgrupo"
+                class="selector-btn"
+                @click="seleccionarGrupo(grupo.idgrupo)"
+              >
+                {{ grupo.nombre }}
+              </button>
             </div>
           </div>
 
-          <!-- Panel derecho -->
-<div class="right-panel">
-  <div class="bordered-box">
-    <div class="label-superior">Captura de productos</div>
+          <!-- Subgrupos -->
+          <div v-if="subgrupos.length" class="section">
+            <p class="panel-label">Subgrupos</p>
+            <div class="btn-grid">
+              <button
+                v-for="subgrupo in subgrupos"
+                :key="subgrupo.idsubgrupo"
+                class="selector-btn"
+                @click="productos.value = []; seleccionarSubgrupo(subgrupo.idsubgrupo)"
+              >
+                {{ subgrupo.nombre }}
+              </button>
+            </div>
+          </div>
 
-    <label>Grupos</label>
-    <div class="group-buttons">
-      <button v-for="grupo in grupos" :key="grupo.idgrupo" @click="seleccionarGrupo(grupo.idgrupo);">
-        {{ grupo.nombre }}
-      </button>
-    </div>
-
-    <div v-if="subgrupos.length">
-      <label>Subgrupos</label>
-      <div class="group-buttons">
-        <button v-for="subgrupo in subgrupos" :key="subgrupo.idsubgrupo" @click="productos.value = [];seleccionarSubgrupo(subgrupo.idsubgrupo)">
-          {{ subgrupo.nombre }}
-        </button>
+          <!-- Productos -->
+          <div v-if="productos.length" class="section">
+            <p class="panel-label">Productos</p>
+            <div class="btn-grid btn-grid--productos">
+              <button
+                v-for="producto in productos"
+                :key="producto.id"
+                class="selector-btn selector-btn--producto"
+                @click="agregarAlCarrito(producto)"
+              >
+                {{ producto.nombre }}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div v-if="productos.length">
-      <label>Productos</label>
-      <div class="productos-lista">
-        <button v-for="producto in productos" :key="producto.id" @click="agregarAlCarrito(producto)">
-          {{ producto.nombre }}
-        </button>
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="cancelar(); limpiar()">Cancelar</button>
+        <button class="btn-confirm" @click="aceptar()">Aceptar</button>
       </div>
     </div>
   </div>
-</div>
-</div>
-<!-- Botones fuera del recuadro -->
-  <div class="button-group">
-    <button class="acep" @click="aceptar">Aceptar</button>
-    <button class="cancel" @click="cancelar;limpiar">Cancelar</button>
-  </div>
 
-      </div>
-    </vue-draggable-resizable>
-  </div>
-  <capturarCompuesto :mostrar="mostrarCompuesto" @cerrar="mostrarCompuesto = false" @actualizar="agregarModificadorAlCarrito()" />
-
+  <capturarCompuesto
+    :mostrar="mostrarCompuesto"
+    @cerrar="mostrarCompuesto = false"
+    @actualizar="agregarModificadorAlCarrito()"
+  />
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, onMounted } from 'vue';
-import VueDraggableResizable from 'vue-draggable-resizable';
-import 'vue-draggable-resizable/style.css';
-import { supabase } from '../../supabase/supabase';
+import { ref, defineProps, defineEmits, onMounted } from "vue";
+import { supabase } from "../../supabase/supabase";
 import capturarCompuesto from "./capturarCompuesto.vue";
 import { idPedido, idProducto, idModificador } from "@/store/auth.js";
+import { ShoppingCart, Trash2, X } from "lucide-vue-next";
 
-
-const props = defineProps({
-  mostrar: Boolean,
-});
-const emit = defineEmits(['cerrar','actualizar']);
-
-const windowWidth = ref(window.innerWidth);
-const windowHeight = ref(window.innerHeight);
+const props = defineProps({ mostrar: Boolean });
+const emit  = defineEmits(["cerrar", "actualizar"]);
 
 const mostrarCompuesto = ref(null);
-// Simulación de datos
-
-const grupos = ref([]);
-const subgrupos = ref([]);
-const productos = ref([]);
-const gruposModificadores = ref([]);
-const carrito = ref([]);
+const grupos           = ref([]);
+const subgrupos        = ref([]);
+const productos        = ref([]);
+const carrito          = ref([]);
 
 const cargarGrupos = async () => {
-  const { data, error } = await supabase
-    .from('grupos')
-    .select();
-
-  if(error){
-    console.error("Error al obtener grupos ",error);
-    return;
-  }
-
+  const { data, error } = await supabase.from("grupos").select();
+  if (error) { console.error("Error al obtener grupos", error); return; }
   grupos.value = data;
 };
 
-
 const cargarSubGrupos = async (idgrupo) => {
-    subgrupos.value = [];     // ← limpia los subgrupos anteriores
-  productos.value = [];     // ← limpia los productos anteriores
-  const { data, error } = await supabase
-    .from('subgrupos')
-    .select()
-    .eq('idgrupo',idgrupo);
-    
-  if(error){
-    console.error("Error al obtener SubGrupos ",error);
-    return;
-  }
-
+  subgrupos.value = [];
+  productos.value = [];
+  const { data, error } = await supabase.from("subgrupos").select().eq("idgrupo", idgrupo);
+  if (error) { console.error("Error al obtener SubGrupos", error); return; }
   subgrupos.value = data;
-  console.log("tamano",subgrupos.value.length);
-  
-  if(subgrupos.value.length === 0){
-    await productosGrupos(idgrupo);
-    console.log(productos.value);
-    
-  }
-  
-  
+  if (subgrupos.value.length === 0) await productosGrupos(idgrupo);
 };
 
-const grupModifcadores = ref([]);
-const modificadores = ref([]);
-const grupoSeleccionadoId = ref(null); // también limpia selección previa
-const cargarGrupModificadores = async () => {
-  const { data, error } = await supabase
-    .from('grupomodificador')
-    .select();
-
-  if(error){
-    console.error("Error al obtener grupos modificadores ",error);
-    return;
-  }
-
-  gruposModificadores.value = data;
-};
-
-
-function limpiar(){
-  carrito.value = [];
-    subgrupos.value = [];
-    productos.value = [];
-};
-
-function seleccionarGrupo(idgrupo) {
-  cargarSubGrupos(idgrupo);
-}
-
-const productosGrupos = async (idgrupo) =>{
-  const { data, error } = await supabase
-    .from('productos')
-    .select()
-    .eq('idgrupo', idgrupo);
-
+const productosGrupos = async (idgrupo) => {
+  const { data } = await supabase.from("productos").select().eq("idgrupo", idgrupo);
   productos.value = data;
 };
 
 async function seleccionarSubgrupo(idsubgrupo) {
-  const { data, error } = await supabase
-    .from('productos')
-    .select()
-    .eq('idsubgrupo', idsubgrupo);
-
+  const { data } = await supabase.from("productos").select().eq("idsubgrupo", idsubgrupo);
   productos.value = data;
-  
+}
+
+function seleccionarGrupo(idgrupo) { cargarSubGrupos(idgrupo); }
+
+function limpiar() {
+  carrito.value   = [];
+  subgrupos.value = [];
+  productos.value = [];
 }
 
 async function agregarModificadorAlCarrito() {
   const { data, error } = await supabase
-    .from('modificadores')
-    .select()
-    .eq('idmodificador', idModificador.value)
-    .single();
+    .from("modificadores").select().eq("idmodificador", idModificador.value).single();
+  if (error) { console.error("Error al obtener modificador", error); return; }
 
-  if (error) {
-    console.error("Error al obtener modificador", error);
-    return;
-  }
-
-  const mod = {
-    idmodificador: data.idmodificador,
-    nombre: data.nombre,
-    precio: data.precio
-  };
-
-  // Obtener el último producto del carrito
   const ultimoProducto = carrito.value[carrito.value.length - 1];
-
-  // Inicializar si no existe
-  if (!ultimoProducto.modificadores) {
-    ultimoProducto.modificadores = [];
-  }
-
-  ultimoProducto.modificadores.push(mod);
-  console.log(carrito.value);
-};
+  if (!ultimoProducto.modificadores) ultimoProducto.modificadores = [];
+  ultimoProducto.modificadores.push({
+    idmodificador: data.idmodificador,
+    nombre:        data.nombre,
+    precio:        data.precio,
+  });
+}
 
 function agregarAlCarrito(producto) {
-  // Crear base del producto
-  const productoCarrito = {
-    id: producto.idproducto,
-    cantidad: 1,
-    descripcion: producto.nombre,
-    precio: producto.precio,
-    modificadores: [] // lista vacía lista para llenarse luego
-  };
-
-  carrito.value.push(productoCarrito);
-
-  // Si es compuesto, abrir capturador de modificadores
+  carrito.value.push({
+    id:            producto.idproducto,
+    cantidad:      1,
+    descripcion:   producto.nombre,
+    precio:        producto.precio,
+    modificadores: [],
+  });
   if (producto.compuesto) {
     mostrarCompuesto.value = true;
-    idProducto.value = producto.idproducto; // si lo usas para cargar modificadores disponibles
+    idProducto.value = producto.idproducto;
   }
-} 
+}
 
 function eliminarDelCarrito(index) {
-  if (carrito.value[index].cantidad > 1) {
-    carrito.value[index].cantidad -= 1;
-  } else {
-    carrito.value.splice(index, 1);
-  }
+  if (carrito.value[index].cantidad > 1) carrito.value[index].cantidad -= 1;
+  else carrito.value.splice(index, 1);
 }
-onMounted(()=>{
-  cargarGrupos();
-  cargarGrupModificadores();
-  
-})
 
 async function aceptar() {
-  try{
-
+  try {
     const total = carrito.value.reduce((acc, item) => {
-      const modTotal = item.modificadores?.reduce((sum, mod) => sum + (mod.precio || 0), 0) || 0;
+      const modTotal = item.modificadores?.reduce((s, mod) => s + (mod.precio || 0), 0) || 0;
       return acc + ((item.precio + modTotal) * item.cantidad);
     }, 0);
-    
-    const { data: pedido, error:errorPedido } = await supabase
-      .from('pedidos')
-      .update({
-        totalPedido: total
-      })
-      .eq('idpedido', idPedido.value);
 
-    if(errorPedido){
-      console.error("Error al actualizar pedido ", errorPedido);
-      return;
-    }
+    const { error: errorPedido } = await supabase
+      .from("pedidos").update({ totalPedido: total }).eq("idpedido", idPedido.value);
+    if (errorPedido) { console.error("Error al actualizar pedido", errorPedido); return; }
 
-    for(const item of carrito.value){
+    for (const item of carrito.value) {
       const { data: productoPedido, error: errorProdPed } = await supabase
-        .from('productos_pedidos')
-        .insert([{
-          idproducto: item.id,
-          idpedido: idPedido.value,
-          cantidad: item.cantidad
-        }])
-        .select()
-        .single();
+        .from("productos_pedidos")
+        .insert([{ idproducto: item.id, idpedido: idPedido.value, cantidad: item.cantidad }])
+        .select().single();
+      if (errorProdPed) { console.error(`Error al agregar producto ${item.nombre}`, errorProdPed); return; }
 
-      if(errorProdPed){
-        console.error(`Erro al agregar producto ${item.nombre}`,errorProdPed);
-        return;
-      }
-
-      const idProductoPedido = productoPedido.idprodpedi;
-
-      // 3. Insertar los modificadores si existen
-      if (item.modificadores && item.modificadores.length > 0) {
-        const modificadoresData = item.modificadores.map(mod => ({
-          idprodpedi: idProductoPedido,
+      if (item.modificadores?.length) {
+        const modsData = item.modificadores.map(mod => ({
+          idprodpedi:    productoPedido.idprodpedi,
           idmodificador: mod.idmodificador,
         }));
-
         const { error: errorMods } = await supabase
-          .from('productos_pedidos_modificadores')
-          .insert(modificadoresData);
-
-        if (errorMods) {
-          console.error("Error al insertar modificadores", errorMods);
-          return;
-        }
+          .from("productos_pedidos_modificadores").insert(modsData);
+        if (errorMods) { console.error("Error al insertar modificadores", errorMods); return; }
       }
     }
 
-     carrito.value = [];
-    subgrupos.value = [];
-    productos.value = [];
-    emit('actualizar');
-    emit('cerrar');
-   
-  }catch(err){
-    console.error("Error en aceptar() ",err);
+    limpiar();
+    emit("actualizar");
+    emit("cerrar");
+  } catch (err) {
+    console.error("Error en aceptar()", err);
   }
-};
-
-function cancelar() {
-  carrito.value = [];
 }
 
+function cancelar() { carrito.value = []; }
 
+onMounted(() => { cargarGrupos(); });
 </script>
 
 <style scoped>
-.custom-draggable {
-  outline: none !important;
-  border: none !important;
-}
-.custom-draggable > div {
-  outline: none !important;
-  border: none !important;
-}
-.vue-draggable-resizable .handle {
-  display: none !important;
-}
-.internal-frame {
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  height: 100%;
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
-  flex-direction: column;
-}
-.header {
-  background: rgb(247, 219, 75);
-  color: white;
-  padding: 5px 20px;
-  font-weight: bold;
-  border-top-left-radius: 15px;
-  border-top-right-radius: 15px;
-  position: relative;
-}
-.close-btn {
-    padding: 0 !important;
-    width: 21px;
-    height: 21px;
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    bottom: 2px;
-    background: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-    margin-right: 4px;
-    font-size: 13px;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
 
-.close-btn:hover {
-  background-color: rgb(209, 0, 0);
-}
-.content {
-  flex-grow: 1;
-  padding: 20px;
-}
-.layout {
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14);
+  width: 860px;
+  max-height: 90vh;
   display: flex;
-  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  flex-shrink: 0;
+}
+
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
+
+.modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0284c7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: background 0.15s;
+}
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
+
+/* Body */
+.modal-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* Carrito */
+.carrito-panel {
+  width: 380px;
+  flex-shrink: 0;
+  border-right: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow: hidden;
+}
+
+.panel-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #bbb;
+  margin: 0 0 10px;
+}
+
+.tabla-wrapper { flex: 1; overflow-y: auto; }
+
+.tabla-carrito {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tabla-carrito th {
+  text-align: left;
+  padding: 8px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: #fff;
+}
+
+.tabla-carrito td {
+  padding: 8px 6px;
+  color: #333;
+  border-bottom: 1px solid #f8f8f8;
+  vertical-align: top;
+}
+
+.tabla-empty { text-align: center; color: #ccc; padding: 20px 0; }
+
+.mod-list {
+  margin: 3px 0 0 4px;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  color: #888;
 }
 
 .remove-btn {
-  width: 25px;
-  height: 25px;
-  background: red;
-  color: white;
+  width: 26px;
+  height: 26px;
   border: none;
-  border-radius: 3px;
+  background: #fff0f0;
+  border-radius: 7px;
   cursor: pointer;
-  padding: 0px;
-
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e53935;
+  transition: background 0.15s;
+  padding: 0;
 }
-.right-panel {
-  width: 50%;
-  padding-left: 30px;
+.remove-btn:hover { background: #ffd7d7; }
+
+/* Selector */
+.selector-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
-.group-buttons, .productos-lista {
+
+.section { display: flex; flex-direction: column; gap: 8px; }
+
+.btn-grid {
   display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-  margin-top: 15px;
   flex-wrap: wrap;
+  gap: 6px;
 }
-.footer-buttons {
-  margin-top: auto;
+
+.selector-btn {
+  padding: 8px 14px;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.selector-btn:hover { background: #f0fdf5; border-color: #2db760; color: #2db760; }
+
+.selector-btn--producto {
+  background: #f8faff;
+  border-color: #dbeafe;
+  color: #1d4ed8;
+}
+.selector-btn--producto:hover { background: #dbeafe; border-color: #1d4ed8; }
+
+/* Footer */
+.modal-footer {
   display: flex;
   gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+  flex-shrink: 0;
 }
-button {
-  padding: 5px 10px;
-  background-color: rgb(130, 165, 243);
-  color: white;
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 42px;
   border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-button:hover {
-  background-color: rgb(105, 133, 194);
-}
-
-.button-group {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 10px;
-  margin-bottom: 30px;
-}
-.tabla {
-    border-collapse: collapse;
-    table-layout: fixed;
-    cursor: pointer;
-}
-
-.tabla th,
-.tabla td {
-    padding: 3px 8px;
-    text-align: left;
-    font-weight: normal;
-    color: #3e3e3e;
-}
-
-.tabla thead th {
-    position: sticky;
-    top: 0;
-    background-color: #e7e7e7;
-    z-index: 1;
-}
-
-.tabla th:nth-child(1) {
-    width: 100px;
-}
-.tabla th:nth-child(2) {
-    width: 230px;
-}
-.tabla th:nth-child(3) {
-    width: 100px;
-}
-
-.tabla th:nth-child(3) {
-    width: 100px;
-}
-.tabla-wrapper {
-    max-height: 363px;
-    min-height: 363px;
-    overflow: auto;
-    border: 1px solid #ccc;
-    display: inline-block; 
-}
-.tabla th {
-    border-bottom: 1px solid #ccc;
-}
-
-.bordered-box {
-  border: 1px solid #ccc;
   border-radius: 10px;
-  padding: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.label-superior {
-  font-weight: bold;
-  margin-bottom: 10px;
-  font-size: 16px;
-  color: #333;
-}
-
-.accion-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100%;
-}
-
-.centered-buttons {
-  justify-content: center;
-  margin-top: 30px;
-}
-
-.acep{
-    width: 133px;
-    padding: 5px 10px;
-}
-
-.cancel{
-  background-color: rgb(126 ,126, 126);
-  width: 133px;
-  padding: 5px 10px;
-}
-
-
-.cancel:hover {
-    background-color: rgb(92, 92, 92);
-}
+.btn-cancel  { background: #f5f5f5; color: #555; }
+.btn-cancel:hover  { background: #eee; }
+.btn-confirm { background: #0284c7; color: #fff; }
+.btn-confirm:hover { background: #0369a1; }
 </style>

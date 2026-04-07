@@ -1,369 +1,316 @@
 <template>
-  <div v-if="mostrar">
-    <vue-draggable-resizable
-      :w="450"
-      :h="375"
-      :x="window.innerWidth / 2 - 225"
-      :y="window.innerHeight / 2 - 240"
-      :resizable="false"
-      class="custom-draggable"
-    >
-      <div class="internal-frame">
-        <div class="header">
-          Pagar
-          <button class="close-btn" @click="$emit('cerrar')">X</button>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><CreditCard :size="18" /></div>
+          <span>Pagar cuenta</span>
         </div>
+        <button class="close-btn" @click="$emit('cerrar'); limpiarCampos()"><X :size="16" /></button>
+      </div>
 
-        <div class="content">
-          <div class="row-3-inputs">
-        <div class="input-group">
-            <label>Total:</label>
-            <input v-model="totalCuenta" type="number" readonly />
-        </div>
-        <div class="input-group">
-            <label>Cambio:</label>
-            <input v-model="cambio" type="number" readonly/>
-        </div>
-        <div class="input-group">
-            <label>Saldo:</label>
-            <input v-model="saldo" type="number" readonly/>
-        </div>
-        </div>
-          <!-- Tabla -->
-          <div class="table-wrapper">
-            <table class="tabla">
-            <thead>
-                <tr>
-                <th>Clave</th>
-                <th>Descripción</th>
-                <th>Importe</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                <td>EF</td>
-                <td>Efectivo</td>
-                <td><input v-model="efectivo" type="number" class="input-control" /></td>
-                </tr>
-                <tr>
-                <td>MC</td>
-                <td>Tarjeta</td>
-                <td><input v-model="tarjeta" type="number" class="input-control" /></td>
-                </tr>
-                <tr>
-                <td>05</td>
-                <td>Transferencia</td>
-                <td><input v-model="transferencia" type="number" class="input-control" /></td>
-                </tr>
-            </tbody>
-            </table>
+      <div class="modal-body">
+        <!-- Totales resumen -->
+        <div class="totales-row">
+          <div class="total-chip">
+            <span class="chip-label">Total</span>
+            <span class="chip-value">${{ totalCuenta }}</span>
           </div>
+          <div class="total-chip total-chip--cambio">
+            <span class="chip-label">Cambio</span>
+            <span class="chip-value">${{ cambio }}</span>
+          </div>
+          <div class="total-chip total-chip--saldo">
+            <span class="chip-label">Saldo</span>
+            <span class="chip-value">${{ saldo }}</span>
+          </div>
+        </div>
 
-          <!-- Botones -->
-          <div class="button-group">
-            <button class="button" @click="confirmarPago()">Aceptar</button>
-            <button class="button cancel-btn" @click="$emit('cerrar');limpiarCampos()">Cancelar</button>
+        <!-- Formas de pago -->
+        <div class="pagos-list">
+          <div class="pago-row">
+            <div class="pago-info">
+              <span class="pago-clave">EF</span>
+              <span class="pago-nombre">Efectivo</span>
+            </div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input v-model="efectivo" type="number" class="pago-input" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="pago-row">
+            <div class="pago-info">
+              <span class="pago-clave">MC</span>
+              <span class="pago-nombre">Tarjeta</span>
+            </div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input v-model="tarjeta" type="number" class="pago-input" placeholder="0.00" />
+            </div>
+          </div>
+          <div class="pago-row">
+            <div class="pago-info">
+              <span class="pago-clave">TR</span>
+              <span class="pago-nombre">Transferencia</span>
+            </div>
+            <div class="input-wrap">
+              <span class="input-prefix">$</span>
+              <input v-model="transferencia" type="number" class="pago-input" placeholder="0.00" />
+            </div>
           </div>
         </div>
       </div>
-    </vue-draggable-resizable>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="$emit('cerrar'); limpiarCampos()">Cancelar</button>
+        <button class="btn-confirm" @click="confirmarPago()">Confirmar pago</button>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { defineEmits, defineProps, ref, watch, onMounted, watchEffect } from "vue";
-import VueDraggableResizable from "vue-draggable-resizable";
-import "vue-draggable-resizable/style.css";
+import { defineEmits, defineProps, ref, watch, onMounted } from "vue";
 import { idPedido } from "@/store/auth.js";
 import { supabase } from "@/supabase/supabase";
+import { CreditCard, X } from "lucide-vue-next";
 
 const props = defineProps(["mostrar"]);
-const emit = defineEmits(["cerrar", "actualizado"]);
-const window = ref(globalThis.window);
+const emit  = defineEmits(["cerrar", "actualizado"]);
 
-const totalCuenta= ref(0); // este viene de tu sistema (por ejemplo, del total del pedido)
-const efectivo = ref(0);
-const tarjeta = ref(0);
+const totalCuenta   = ref(0);
+const efectivo      = ref(0);
+const tarjeta       = ref(0);
 const transferencia = ref(0);
-
-const totalPago = ref(0);
-const cambio = ref(0);
-const saldo = ref(0);
+const totalPago     = ref(0);
+const cambio        = ref(0);
+const saldo         = ref(0);
 
 async function obtenerTotalCuenta() {
-  const { data, error} = await supabase
-    .from('pedidos')
-    .select()
-    .eq('idpedido', idPedido.value);
-
-  if(error){
-    console.error("Error al obtener total del pedidiop ",error);
-    return;
-  }
-
+  const { data, error } = await supabase
+    .from("pedidos").select().eq("idpedido", idPedido.value);
+  if (error) { console.error("Error al obtener total del pedido", error); return; }
   totalCuenta.value = data[0].totalPedido;
-  console.log(data[0].totalPedido);
-  
-};
+}
 
 watch([efectivo, tarjeta, transferencia], () => {
   totalPago.value = Number(efectivo.value || 0) + Number(tarjeta.value || 0) + Number(transferencia.value || 0);
-
   const diferencia = totalPago.value - totalCuenta.value;
-
-  if (diferencia >= 0) {
-    cambio.value = diferencia;
-    saldo.value = 0;
-  } else {
-    saldo.value = Math.abs(diferencia);
-    cambio.value = 0;
-  }
+  if (diferencia >= 0) { cambio.value = diferencia; saldo.value = 0; }
+  else { saldo.value = Math.abs(diferencia); cambio.value = 0; }
 });
 
 function limpiarCampos() {
-  totalCuenta.value = 0;
-  cambio.value = 0;
-  saldo.value = 0;
-  efectivo.value = 0;
-  tarjeta.value = 0;
-  transferencia.value = 0;
+  totalCuenta.value = 0; cambio.value = 0; saldo.value = 0;
+  efectivo.value = 0; tarjeta.value = 0; transferencia.value = 0;
 }
+
 async function confirmarPago() {
-  if (!idPedido.value) {
-    console.log("Debes seleccionar un pedido.");
-    return;
-  }
-
-  // 🚫 Validación para evitar cambio si no hay efectivo
+  if (!idPedido.value) { console.log("Debes seleccionar un pedido."); return; }
   if (cambio.value > 0 && Number(efectivo.value) === 0) {
-    console.log("⚠️ No se puede dar cambio si no hay pago en efectivo.");
-    return;
+    console.log("⚠️ No se puede dar cambio sin pago en efectivo."); return;
   }
 
-  // ✅ Continuar con el registro si pasa la validación
   const { error } = await supabase
-    .from('pedidos')
-    .update(
-      {
-        pagoEfectivo: efectivo.value,
-        pagoTarjeta: tarjeta.value,
-        pagoTransfer: transferencia.value,
-        abierto: false        
-      }
-    )
-    .eq('idpedido', idPedido.value);
+    .from("pedidos")
+    .update({
+      pagoEfectivo: efectivo.value,
+      pagoTarjeta:  tarjeta.value,
+      pagoTransfer: transferencia.value,
+      abierto:      false,
+    })
+    .eq("idpedido", idPedido.value);
 
-  if (error) {
-    console.error("Error al registrar el pago", error);
-    console.log("Hubo un error al registrar el pago.");
-  } else {
-    console.log("Pago registrado correctamente.");
-    limpiarCampos();
-    emit('actualizado');
-    emit("cerrar");
-  }
-};
+  if (error) { console.error("Error al registrar el pago", error); return; }
+
+  limpiarCampos();
+  emit("actualizado");
+  emit("cerrar");
+}
 
 watch(() => props.mostrar, async (visible) => {
-  if (visible) {
-    limpiarCampos();              // primero limpia
-    await obtenerTotalCuenta();   // luego trae el total actualizado
-  }
+  if (visible) { limpiarCampos(); await obtenerTotalCuenta(); }
 });
 
-onMounted(() => {
-  limpiarCampos();
-  obtenerTotalCuenta(); // ya se actualizará correctamente
-});
-
+onMounted(() => { limpiarCampos(); obtenerTotalCuenta(); });
 </script>
 
 <style scoped>
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
 }
-.custom-draggable {
-  outline: none !important;
-  border: none !important;
-}
-.custom-draggable > div {
-  outline: none !important;
-  border: none !important;
-}
-.vue-draggable-resizable .handle {
-  display: none !important;
-}
-.vue-draggable-resizable .handle-tl,
-.vue-draggable-resizable .handle-tr,
-.vue-draggable-resizable .handle-bl,
-.vue-draggable-resizable .handle-br {
-  display: none !important;
-}
-.internal-frame {
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  height: 100%;
+
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14);
+  width: 380px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
-.header {
-  background: rgb(247, 219, 75);
-  color: white;
-  padding: 5px 20px;
-  font-weight: bold;
-  border-top-left-radius: 15px;
-  border-top-right-radius: 15px;
-  position: relative;
-  text-align: left;
-}
-.close-btn {
-        padding: 0 !important;
-        width: 21px;
-        height: 21px;
-        position: absolute;
-        right: 2px;
-        top: 2px;
-        bottom: 2px;
-        background: red;
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-top: 4px;
-        margin-right: 4px;
-        font-size: 13px;
-    }
-.close-btn:hover {
-  background-color: rgb(209, 0, 0);
-}
-.content {
-  flex-grow: 1;
+
+.modal-header {
   display: flex;
-  flex-direction: column;
-  padding: 20px;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
 }
-.input-row {
+
+.modal-header-left {
   display: flex;
   align-items: center;
   gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
 }
-input {
-  padding: 5px;
-  border: 1px solid #b4b4b4;
-  border-radius: 4px;
-  width: 100%;
-}
-.table-wrapper {
-  max-height: 165px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
-  margin-top: 15px;
-}
-.tablaComedor {
-  width: 100%;
-  border-collapse: collapse;
-}
-.tablaComedor th,
-.tablaComedor td {
-  border: 1px solid #ccc;
-  padding: 4px;
-  text-align: left;
-}
-.tablaComedor th {
-  background-color: #e7e7e7;
-}
-.button-group {
+
+.modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e6fff0;
+  color: #2db760;
   display: flex;
-  justify-content: space-between;
-  margin-top: 15px;
-  margin-left: 60px;
-  margin-right: 60px;
+  align-items: center;
+  justify-content: center;
 }
-button {
-  width: 135px;
-  padding: 5px 15px;
+
+.close-btn {
+  width: 30px;
+  height: 30px;
   border: none;
-  background-color: rgb(130, 165, 243);
-  color: white;
-  border-radius: 5px;
+  background: #f5f5f5;
+  border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-.button:hover {
-  background-color: rgb(105, 133, 194);
-}
-.cancel-btn {
-  background-color: rgb(126, 126, 126);
-}
-.cancel-btn:hover {
-  background-color: rgb(92, 92, 92);
-}
-
-.row-3-inputs,
-.row-2-inputs {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: background 0.15s;
 }
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-.input-group {
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Totales resumen */
+.totales-row { display: flex; gap: 10px; }
+
+.total-chip {
+  flex: 1;
+  background: #fafafa;
+  border: 1px solid #efefef;
+  border-radius: 12px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
+  gap: 2px;
+}
+
+.total-chip--cambio { border-color: #d1fae5; background: #f0fdf4; }
+.total-chip--saldo  { border-color: #fee2e2; background: #fff5f5; }
+
+.chip-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #bbb;
+}
+
+.chip-value { font-size: 16px; font-weight: 700; color: #111; }
+.total-chip--cambio .chip-value { color: #2db760; }
+.total-chip--saldo  .chip-value { color: #e53935; }
+
+/* Formas de pago */
+.pagos-list { display: flex; flex-direction: column; gap: 10px; }
+
+.pago-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pago-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+
+.pago-clave {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f4f4f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+}
+
+.pago-nombre { font-size: 14px; font-weight: 500; color: #333; }
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  overflow: hidden;
+  width: 140px;
+  transition: border-color 0.2s;
+}
+.input-wrap:focus-within { border-color: #2db760; }
+
+.input-prefix {
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #aaa;
+  background: #fafafa;
+  border-right: 1.5px solid #e5e5e5;
+}
+
+.pago-input {
   flex: 1;
+  padding: 8px 10px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #111;
+  background: transparent;
+  width: 0;
 }
 
-.input-grande{
-    flex: 1.8;
-    }
+.pago-input::-webkit-inner-spin-button,
+.pago-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-.input-chico{
-    flex: 1.2;
-}
-.tabla {
-    border-collapse: collapse;
-    table-layout: fixed;
-    cursor: pointer;
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
 }
 
-.tabla th,
-.tabla td {
-    padding: 3px 8px;
-    text-align: left;
-    border: 1px solid #ccc;
-    font-weight: normal;
-    color: #3e3e3e;
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.tabla thead th {
-    position: sticky;
-    top: 0;
-    background-color: #e7e7e7;
-    z-index: 1;
-}
-.tabla th:nth-child(1) {
-    width: 80px;
-}
-.tabla th:nth-child(2) {
-    width: 200px;
-}
-.tabla th:nth-child(3) {
-    width: 140px;
-}
-
-.input-control {
-  width: 100%;
-  padding: 4px;
-  border: 1px solid #ffffff;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
+.btn-cancel  { background: #f5f5f5; color: #555; }
+.btn-cancel:hover  { background: #eee; }
+.btn-confirm { background: #2db760; color: #fff; }
+.btn-confirm:hover { background: #239e51; }
 </style>

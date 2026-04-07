@@ -25,7 +25,7 @@
         <p class="subtitle">
           Enter your username and password to access your account
         </p>
-
+        <label>Username</label>
         <form @submit.prevent="iniciarSesion">
           <div class="input-icon">
     <!-- icono usuario -->

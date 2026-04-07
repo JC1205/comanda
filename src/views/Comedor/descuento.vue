@@ -1,190 +1,187 @@
 <template>
-    <div v-if="mostrar">
-        <vue-draggable-resizable
-        :w="280"
-        :h="195"
-        :x="window.innerWidth / 2 - 150"
-        :y="window.innerHeight / 2 - 170"
-        :resizable="false"
-        class="custom-draggable">
-            <div class="internal-frame">
-                <div class="header">Descuento
-                    <button class="close-btn" @click="$emit('cerrar')">X</button>
-                </div>
-                <div class="content">
-                    <p>Porcentaje de descuento:</p>
-                    <input v-model="descuento" type="number" placeholder="%" class="border-2 w-[295px] mt-4" />
-                    <div class="button-group">
-                        <button @click="calcualarDescuento()" class="button">Confirmar</button>
-                        <button @click="$emit('cerrar')" class="cancel-btn">Cancelar</button>
-                    </div>
-                </div>
-            </div>
-        </vue-draggable-resizable>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><Percent :size="18" /></div>
+          <span>Descuento</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="16" /></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field-group">
+          <label class="field-label">Porcentaje de descuento</label>
+          <div class="input-wrap">
+            <span class="input-suffix">%</span>
+            <input v-model="descuento" type="number" class="field-input" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="$emit('cerrar')">Cancelar</button>
+        <button class="btn-confirm" @click="calcularDescuento()">Confirmar</button>
+      </div>
     </div>
+  </div>
 </template>
 
 <script setup>
-    import { supabase } from "@/supabase/supabase";
-    import { defineEmits, defineProps, ref } from "vue";
-    import VueDraggableResizable from "vue-draggable-resizable";
-    import "vue-draggable-resizable/style.css";
-    import { idPedido } from  "@/store/auth.js";
+import { supabase } from "@/supabase/supabase";
+import { defineEmits, defineProps, ref } from "vue";
+import { idPedido } from "@/store/auth.js";
+import { Percent, X } from "lucide-vue-next";
 
+const props = defineProps(["mostrar"]);
+const emit  = defineEmits(["cerrar", "actualizar"]);
 
-  // Props y eventos
-    const props = defineProps(["mostrar"]);
-    const emit = defineEmits(["cerrar", "actualizar"]);
+const descuento = ref(null);
 
-  // Variables
-    const window = ref(globalThis.window);
+async function calcularDescuento() {
+  const desc = Number(descuento.value || 0);
 
-    const descuento = ref(null);
+  const { error } = await supabase
+    .from("pedidos")
+    .update({ descuento: desc })
+    .eq("idpedido", idPedido.value);
 
-    async function calcualarDescuento() {
-        
-        const desc = Number(descuento.value || 0);
-        const { data, error} = await supabase 
-            .from('pedidos')
-            .update({
-                descuento: desc
-            })
-            .eq('idpedido', idPedido.value);
+  if (error) { console.error("Error al actualizar descuento", error); return; }
 
-        if(error){
-            console.error("Error al actualizar descuento ",error);
-            return;
-        }
-
-        emit('actualizar',desc);
-        descuento.value = null;
-        emit('cerrar');
-    }
-
+  emit("actualizar", desc);
+  descuento.value = null;
+  emit("cerrar");
+}
 </script>
 
 <style scoped>
-    /*Para quitar las flechas del spinner*/
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-    }
-    .custom-draggable {
-        outline: none !important;
-        border: none !important;
-    }
-  /* Estilos para eliminar líneas punteadas de vue-draggable-resizable */
-    .custom-draggable {
-        outline: none !important;
-        border: none !important;
-    }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
 
-    .custom-draggable > div {
-    outline: none !important;
-    border: none !important;
-    }
+.modal-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14);
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
-    .vue-draggable-resizable .handle {
-    display: none !important;
-    }
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
 
-    .vue-draggable-resizable .handle-tl,
-    .vue-draggable-resizable .handle-tr,
-    .vue-draggable-resizable .handle-bl,
-    .vue-draggable-resizable .handle-br {
-    display: none !important;
-    }
+.modal-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+}
 
-    .internal-frame {
-        outline: none;
-        position: fixed;
-        background: white;
-        border: 1px solid #ccc;
-        border-radius: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        width: 120%;
-        height: 110%;
-        display: flex;
-        flex-direction: column;
-    }
+.modal-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #fff8e1;
+  color: #e08c00;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-    .header {
-        background: rgb(247, 219, 75);
-        color: white;
-        padding: 5px 20px;
-        font-weight: bold;
-        border-top-left-radius: 15px;
-        border-top-right-radius: 15px;
-        position: relative;
-        text-align: left;
-    }
+.close-btn {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: background 0.15s;
+}
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-    .close-btn {
-        padding: 0 !important;
-        width: 21px;
-        height: 21px;
-        position: absolute;
-        right: 2px;
-        top: 2px;
-        bottom: 2px;
-        background: red;
-        color: white;
-        border: none;
-        cursor: pointer;
-        border-radius: 5px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-top: 4px;
-        margin-right: 4px;
-        font-size: 13px;
-    }
+.modal-body { padding: 20px; }
 
-    .close-btn:hover{
-        background-color: rgb(209, 0, 0);
-    }
-    .content {
-        flex-grow: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 20px;
-    }
+.field-group { display: flex; flex-direction: column; gap: 6px; }
 
-    .button-group {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 25px;
-        margin-left: 20px;
-        margin-right: 33px;
-    }
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
 
-    button {
-        width: 110px;
-        padding: 5px 15px;
-        border: none;
-        background-color: rgb(130, 165, 243);
-        color: white;
-        border-radius: 5px;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-    .button:hover {
-        background-color: rgb(105, 133, 194);
-    }
+.input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e5e5e5;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.input-wrap:focus-within { border-color: #e08c00; }
 
-    .cancel-btn {
-        background-color: rgb(126 ,126, 126);
-    }
+.input-suffix {
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #e08c00;
+  background: #fff8e1;
+  border-right: 1.5px solid #e5e5e5;
+}
 
-    .cancel-btn:hover {
-        background-color: rgb(92, 92, 92);
-    }
+.field-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: #111;
+  background: transparent;
+}
 
-    input {
-    padding-left: 10px;
-    padding: 5px;
-    border: 1px solid #b4b4b4;
-    border-radius: 4px;
-    }
+.field-input::-webkit-inner-spin-button,
+.field-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-cancel  { background: #f5f5f5; color: #555; }
+.btn-cancel:hover  { background: #eee; }
+.btn-confirm { background: #e08c00; color: #fff; }
+.btn-confirm:hover { background: #c47a00; }
 </style>
