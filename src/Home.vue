@@ -25,9 +25,9 @@
         </div>
 
 
-        <div class="menu-item" @click="abrirRetiros">
-          <img src="/retirar.png" class="icon">
-          <span>Depósito y retiro</span>
+        <div class="menu-item" :class="{ active: vistaActiva === 'retiros' }" @click="setVista('retiros')">
+          <img src="/arrow-up-down.png" class="icon">
+          <span>Movimientos</span>
         </div>
 
         <div class="menu-item" @click="abrirCorte">
@@ -101,6 +101,12 @@
       </div>
     </transition>
 
+          <transition name="panel-fade">
+        <div v-if="vistaActiva === 'retiros'" class="hero-panel">
+          <Retiros :mostrar="true" @irHome="setVista('home')" />
+        </div>
+      </transition>
+
       </section>
     </main>
 
@@ -132,9 +138,7 @@
     <!-- MODALES FLOTANTES (NO TOCAR) -->
     <aggProductos :mostrar="mostrarAggProductos" @cerrar="mostrarAggProductos = false" />
     <aggUsuarios  :mostrar="mostrarAggUsuarios"  @cerrar="mostrarAggUsuarios = false" />
-
     <impresoras   :mostrar="mostrarImpresoras"   @cerrar="mostrarImpresoras = false" />
-    <retiros      :mostrar="mostrarRetiros"      @cerrar="mostrarRetiros = false" />
     <corte        :mostrar="mostrarCorte"        @cerrar="mostrarCorte = false" />
 
 
@@ -149,8 +153,9 @@ import aggProductos from "./views/aggProductos.vue";
 import aggUsuarios from "./views/aggUsuarios.vue";
 import GestorTurno from "@/views/GestorTurno.vue";
 import impresoras from "./views/impresoras.vue";
-import retiros from "./views/retiros.vue";
+
 import corte from "./views/corte.vue";
+import Retiros from "./views/retiros.vue";
 
 import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
@@ -163,6 +168,7 @@ const titulos = {
   home:  'Home',
   turno: 'Turnos',
   pedidos: 'Pedidos',
+  retiros: 'Movimientos'
 };
 
 const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
