@@ -35,19 +35,10 @@
           <span>Corte de caja</span>
         </div>
 
-        <!-- AJUSTES -->
-        <div class="menu-item" @click.stop="mostrarDropdown = !mostrarDropdown">
-          <img src="/icons8-ajustes-48.png" class="icon">
-          <span>Ajustes</span>
-        </div>
-
-        <transition name="fade">
-          <div v-show="mostrarDropdown" class="dropdown-modern">
-            <div @click="abrirAggProductos(); mostrarDropdown=false">Productos</div>
-            <div @click="abrirAggUsuarios(); mostrarDropdown=false">Usuarios</div>
-            <div @click="abrirImpresoras(); mostrarDropdown=false">Impresoras</div>
-          </div>
-        </transition>
+        <div class="menu-item" :class="{ active: vistaActiva === 'ajustes' }" @click="abrirAjustes">
+        <img src="/settings.png" class="icon">
+        <span>Ajustes</span>
+      </div>
 
       </div>
 
@@ -107,6 +98,13 @@
         </div>
       </transition>
 
+      <transition name="panel-fade">
+      <div v-if="vistaActiva === 'ajustes'" class="hero-panel">
+        <GestorAjustes :mostrar="true"
+              @cerrar="setVista('home')"/>
+      </div>
+    </transition>
+
       </section>
     </main>
 
@@ -149,17 +147,15 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import aggProductos from "./views/aggProductos.vue";
-
 import aggUsuarios from "./views/aggUsuarios.vue";
 import GestorTurno from "@/views/GestorTurno.vue";
 import impresoras from "./views/impresoras.vue";
-
 import corte from "./views/corte.vue";
 import Retiros from "./views/retiros.vue";
-
 import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
 import GestorPedidos  from "@/views/GestorPedidos.vue";
+import GestorAjustes from "@/views/GestorAjustes.vue";
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
 const vistaActiva = ref('home');
@@ -168,7 +164,8 @@ const titulos = {
   home:  'Home',
   turno: 'Turnos',
   pedidos: 'Pedidos',
-  retiros: 'Movimientos'
+  retiros: 'Movimientos',
+  ajustes: 'Ajustes'
 };
 
 const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
@@ -180,6 +177,7 @@ const setVista = (vista) => {
 const fecha = new Date();
 
 const abrirPedidos = () => setVista('pedidos');
+const abrirAjustes = () => setVista('ajustes');
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);
@@ -236,6 +234,10 @@ const salir = () => { router.push("/"); };
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  user-select: none;
+}
 
 .layout {
   display: flex;
