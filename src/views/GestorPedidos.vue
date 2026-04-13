@@ -435,7 +435,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px 14px;
+  padding: 25px 36px 14px;
   flex-shrink: 0;
 }
 
@@ -485,6 +485,7 @@ onMounted(() => {
   flex: 1;
   overflow: hidden;
   min-height: 0;
+  
 }
 
 /* ── Lista izquierda ───────────────────────────────────────── */

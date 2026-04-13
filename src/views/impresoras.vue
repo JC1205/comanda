@@ -1,221 +1,214 @@
 <template>
-    <div v-if="mostrar" class="modal-overlay">
-      <VueDraggableResizable
-        class="modal-draggable custom-draggable"
-        :w="800"
-        :h="600"
-        :resizable="false"
-      >
-        <div class="internal-frame">
-          <div class="header">
-            Impresoras
-            <button class="close-btn" @click="cerrar">X</button>
-          </div>
-          <div class="content">
-            <label for="printer-select">Seleccionar impresora:</label>
-            <select id="printer-select" v-model="selectedPrinter">
-              <option v-for="printer in printers" :key="printer.name" :value="printer.name">
-                {{ printer.name }}
-              </option>
-            </select>
-  
-            <h3>Vista previa del ticket:</h3>
-            <div class="ticket-preview">
-              <pre>{{ formattedTicket }}</pre>
-            </div>
-  
-            <button class="print-btn" @click="printTest">Imprimir prueba</button>
-            <p class="log">{{ message }}</p>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><Printer :size="18" /></div>
+          <span>Impresoras</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="16" /></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Selector de impresora -->
+        <div class="field-group">
+          <label class="field-label">Impresora seleccionada</label>
+          <select v-model="selectedPrinter" class="field-input field-select">
+            <option v-for="printer in printers" :key="printer.name" :value="printer.name">
+              {{ printer.name }}
+            </option>
+            <option v-if="!printers.length" disabled>Sin impresoras detectadas</option>
+          </select>
+        </div>
+
+        <!-- Vista previa -->
+        <div class="preview-section">
+          <p class="field-label">Vista previa del ticket</p>
+          <div class="ticket-preview">
+            <pre class="ticket-pre">{{ formattedTicket }}</pre>
           </div>
         </div>
-      </VueDraggableResizable>
+
+        <!-- Mensaje de estado -->
+        <div v-if="message" class="message-row" :class="message.startsWith('✅') ? 'msg-ok' : 'msg-err'">
+          {{ message }}
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" @click="$emit('cerrar')">Cancelar</button>
+        <button class="btn-confirm" @click="printTest">
+          <Printer :size="14" />
+          Imprimir prueba
+        </button>
+      </div>
+
     </div>
-  </template>
-  
-  <script setup>
-  import { defineProps, defineEmits, ref, computed, onMounted } from 'vue';
-  import VueDraggableResizable from 'vue-draggable-resizable';
-  import "vue-draggable-resizable/style.css";
-  
-  const props = defineProps({ mostrar: Boolean });
-  const emit = defineEmits(['cerrar']);
-  
-  const printers = ref([]);
-  const selectedPrinter = ref('');
-  const message = ref('');
-  
-  const ticketData = {
-    titulo: '***Pio Pio Bonless and wings***',
-    pedido: '1234',
-    items: [
-      { nombre: 'Boneless', cantidad: 1, precio: 180 },
-      { nombre: 'Coca-Cola', cantidad: 2, precio: 25 }
-    ],
-    mensaje: 'Mensaje de ejemplo'
-  };
-  
-  ticketData.total = ticketData.items.reduce((acc, item) => acc + item.precio * item.cantidad, 0);
-  
-  const formattedTicket = computed(() => {
-    const fecha = new Date().toLocaleString();
-    const lines = [
-      `*** ${ticketData.titulo} ***`,
-      `${fecha}`,
-      `Pedido #: ${ticketData.pedido}`,
-      '',
-      ...ticketData.items.map(item => `${item.cantidad}x ${item.nombre} - $${(item.precio * item.cantidad).toFixed(2)}`),
-      '',
-      `Total: $${ticketData.total.toFixed(2)}`,
-      '',
-      ticketData.mensaje
-    ];
-    return lines.join('\n');
-  });
-  
-  const cerrar = () => emit('cerrar');
-  
-  const printTest = async () => {
-    try {
-      const success = await window.printer.printTicket(ticketData, selectedPrinter.value);
-      message.value = success ? '✅ Impreso correctamente' : '❌ Falló la impresión';
-    } catch (err) {
-      message.value = '❌ Error: ' + err.message;
-    }
-  };
-  
-  onMounted(async () => {
-    try {
-      const list = await window.printer.getPrinters();
-      printers.value = list;
-      if (list.length) selectedPrinter.value = list[0].name;
-    } catch (err) {
-      console.error('Error obteniendo impresoras:', err);
-      message.value = 'Error cargando impresoras';
-    }
-  });
-  </script>
-  
-  <style scoped>
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-  .modal-draggable {
-    width: 800px !important;
-    height: 600px !important;
-  }
+  </div>
+</template>
 
-  /* Estilos para eliminar líneas punteadas de vue-draggable-resizable */
-.custom-draggable {
-  outline: none !important;
-  border: none !important;
+<script setup>
+import { defineProps, defineEmits, ref, computed, onMounted } from "vue";
+import { Printer, X } from "lucide-vue-next";
+
+const props = defineProps({ mostrar: Boolean });
+const emit  = defineEmits(["cerrar"]);
+
+const printers        = ref([]);
+const selectedPrinter = ref("");
+const message         = ref("");
+
+const ticketData = {
+  titulo:  "*** Pio Pio Bonless and wings ***",
+  pedido:  "1234",
+  items: [
+    { nombre: "Boneless",  cantidad: 1, precio: 180 },
+    { nombre: "Coca-Cola", cantidad: 2, precio: 25  },
+  ],
+  mensaje: "Mensaje de ejemplo",
+};
+ticketData.total = ticketData.items.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
+
+const formattedTicket = computed(() => {
+  const fecha = new Date().toLocaleString();
+  return [
+    ticketData.titulo,
+    fecha,
+    `Pedido #: ${ticketData.pedido}`,
+    "",
+    ...ticketData.items.map(i => `${i.cantidad}x ${i.nombre} - $${(i.precio * i.cantidad).toFixed(2)}`),
+    "",
+    `Total: $${ticketData.total.toFixed(2)}`,
+    "",
+    ticketData.mensaje,
+  ].join("\n");
+});
+
+const printTest = async () => {
+  try {
+    const success = await window.printer.printTicket(ticketData, selectedPrinter.value);
+    message.value = success ? "✅ Impreso correctamente" : "❌ Falló la impresión";
+  } catch (err) {
+    message.value = "❌ Error: " + err.message;
+  }
+};
+
+onMounted(async () => {
+  try {
+    const list = await window.printer.getPrinters();
+    printers.value = list;
+    if (list.length) selectedPrinter.value = list[0].name;
+  } catch (err) {
+    console.error("Error obteniendo impresoras:", err);
+    message.value = "Error cargando impresoras";
+  }
+});
+</script>
+
+<style scoped>
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000;
 }
 
-.custom-draggable > div {
-  outline: none !important;
-  border: none !important;
+.modal-card {
+  background: #fff; border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+  width: 480px; max-height: 90vh;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 
-.vue-draggable-resizable .handle {
-  display: none !important;
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
 }
 
-.vue-draggable-resizable .handle-tl,
-.vue-draggable-resizable .handle-tr,
-.vue-draggable-resizable .handle-bl,
-.vue-draggable-resizable .handle-br {
-  display: none !important;
+.modal-header-left {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700; color: #111;
 }
-  .internal-frame {
-    background: #fff;
-    border-radius: 15px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  }
-  .header {
-    background: rgb(247, 219, 75);
-    padding: 5px 20px;
-    font-weight: bold;
-    color: #fff;
-    position: relative;
-  }
+
+.modal-icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: #e0f2fe; color: #0284c7;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.close-btn {
+  width: 30px; height: 30px; border: none; background: #f5f5f5;
+  border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #888; transition: background 0.15s;
+}
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
+
+.modal-body {
+  padding: 20px; display: flex; flex-direction: column;
+  gap: 16px; overflow-y: auto; flex: 1;
+  padding: 10px 36px 32px 32px;
   
-  .close-btn {
-    padding: 0 !important;
-    width: 21px;
-    height: 21px;
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    bottom: 2px;
-    background: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-    margin-right: 4px;
-    font-size: 13px;
 }
-  .content {
-    position: relative;
-    flex: 1;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-  }
-  label {
-    font-weight: 500;
-    margin-bottom: 5px;
-  }
-  select {
-    margin-bottom: 15px;
-    padding: 5px;
-    border: #ccc;
-    border: 1px solid #b4b4b4;
-    border-radius: 4px;
-  }
-  .ticket-preview {
-    width: 220px;
-    max-height: 350px;
-    background: #f8f8f8;
-    border: 1px dashed #ccc;
-    padding: 10px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    font-family: monospace;
-    font-size: 14px;
-  }
-  .print-btn {
-    width: 170px;
-    position: absolute;
-    bottom: 20px;
-    left: 20px;
-    padding: 8px 16px;
-    background-color: #82a5f3;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
 
-  }
-  .log {
-    margin-top: 10px;
-    font-size: 0.9em;
-  }
-  </style>
-  
+.field-group { display: flex; flex-direction: column; gap: 6px; }
+
+.field-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: #bbb;
+}
+
+.field-input {
+  padding: 10px 12px;
+  border: 1.5px solid #e5e5e5; border-radius: 10px;
+  font-size: 14px; color: #111; outline: none;
+  transition: border-color 0.2s;
+}
+.field-input:focus { border-color: #0284c7; }
+.field-select { cursor: pointer; background: #fff; }
+
+/* Vista previa */
+.preview-section { display: flex; flex-direction: column; gap: 8px; }
+
+.ticket-preview {
+  background: #fafafa; border: 1.5px solid #efefef;
+  border-radius: 10px; padding: 14px;
+  max-height: 220px; overflow-y: auto;
+}
+
+.ticket-pre {
+  font-family: 'Courier New', monospace;
+  font-size: 12px; color: #333; margin: 0;
+  white-space: pre-wrap; line-height: 1.6;
+}
+
+/* Mensaje */
+.message-row {
+  padding: 10px 14px; border-radius: 10px;
+  font-size: 13px; font-weight: 600;
+}
+.msg-ok  { background: #f0fdf5; color: #2db760; border: 1px solid #d1fae5; }
+.msg-err { background: #fff5f5; color: #e53935; border: 1px solid #fecaca; }
+
+/* Footer */
+.modal-footer {
+  display: flex; gap: 10px;
+  padding: 25px 36px; border-top: 1px solid #f0f0f0; flex-shrink: 0;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1; height: 42px; border: none; border-radius: 10px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.15s ease;
+}
+
+.btn-cancel  { background: #f5f5f5; color: #555; }
+.btn-cancel:hover  { background: #eee; }
+.btn-confirm {
+  background: #0284c7; color: #fff;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-confirm:hover { background: #0369a1; }
+</style>

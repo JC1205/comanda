@@ -262,7 +262,7 @@ onMounted(() => { cargarGrupos(); });
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 25px 36px;
   border-bottom: 1px solid #f0f0f0;
   flex-shrink: 0;
 }
@@ -428,7 +428,7 @@ onMounted(() => { cargarGrupos(); });
 .modal-footer {
   display: flex;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 25px 36px;
   border-top: 1px solid #f0f0f0;
   flex-shrink: 0;
 }

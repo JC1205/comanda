@@ -1,332 +1,201 @@
 <template>
-    <div v-if="mostrar">
-        <vue-draggable-resizable :w="460" :h="520" :x="window.innerWidth / 2 - 220" :y="window.innerHeight / 2 - 300" :resizable="false" class="custom-draggable">
-            <div class="internal-frame">
-                <div class="header">
-                Administrar grupos
-                <button class="close-btn" @click="$emit('cerrar')">X</button>
-            </div>
-            <div class="content">
-            <!-- Inputs y botones arriba -->
-            <div class="right-panel">
-                <div class="agregar-producto">
-                <span>Agregar nuevo grupo:</span>
-                </div>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><FolderOpen :size="16" /></div>
+          <span>Administrar grupos</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="15" /></button>
+      </div>
 
-                <div class="button-group">
-                <button @click="aggGrupo()" class="button">Guardar</button>
-                <button @click="delGrupo()" class="button">Eliminar</button>
-                <button @click="limpiarCampos()" class="button">Limpiar</button>
-                </div>
+      <div class="modal-body">
+        <div class="split-layout">
 
-                <div class="input-frame">
-                <div class="input-row">
-                    <label>Clave</label>
-                    <input v-model="clave" type="number" class="input-tabla input-chico" readonly/>
-                </div>
-                <div class="input-row">
-                    <label>Descripción</label>
-                    <input v-model="nombre" type="text" class="input-tabla" />
-                </div>
-                </div>
-            </div>
-
-            <!-- Tabla debajo -->
-            <div class="tabla-wrapper" style="margin-top: 20px;">
-                <table class="tablaUsuarios">
-                <thead>
-                    <tr>
-                    <th>Clave</th>
-                    <th>Descripción</th>
-                    </tr>
-                </thead>
+          <!-- Tabla -->
+          <div class="tabla-panel">
+            <p class="panel-label">Grupos</p>
+            <div class="tabla-wrapper">
+              <table class="tabla">
+                <thead><tr><th>Clave</th><th>Descripción</th></tr></thead>
                 <tbody>
-                    <tr v-for="grupo in grupos" :key="grupos.idgrupo" @dblclick="seleccionarGrupo(grupo)">
+                  <tr
+                    v-for="grupo in grupos" :key="grupo.idgrupo"
+                    @click="seleccionarGrupo(grupo)"
+                    :class="{ selected: clave === grupo.idgrupo }"
+                  >
                     <td>{{ grupo.idgrupo }}</td>
                     <td>{{ grupo.nombre }}</td>
-                    </tr>                  
+                  </tr>
+                  <tr v-if="!grupos.length"><td colspan="2" class="tabla-empty">Sin grupos</td></tr>
                 </tbody>
-                </table>
+              </table>
             </div>
+          </div>
+
+          <!-- Formulario -->
+          <div class="form-panel">
+            <p class="panel-label">Datos del grupo</p>
+            <div class="fields">
+              <div class="field-group">
+                <label class="field-label">Clave</label>
+                <input v-model="clave" type="number" class="field-input field-input--readonly" readonly />
+              </div>
+              <div class="field-group">
+                <label class="field-label">Descripción</label>
+                <input v-model="nombre" type="text" class="field-input" placeholder="Nombre del grupo" />
+              </div>
             </div>
+            <div class="form-actions">
+              <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
+              <button class="btn-danger" @click="delGrupo">Eliminar</button>
+              <button class="btn-primary" @click="aggGrupo">Guardar</button>
+            </div>
+          </div>
+
         </div>
-        </vue-draggable-resizable>
+      </div>
     </div>
-    </template>
+  </div>
+</template>
 
 <script setup>
-import { defineProps, defineEmits, ref, onMounted, onUnmounted } from "vue";
-import VueDraggableResizable from "vue-draggable-resizable";
-import "vue-draggable-resizable/style.css";
-import {supabase} from "@/supabase/supabase";
-import { getJSDocReadonlyTag } from "typescript";
-
-
+import { defineProps, defineEmits, ref, onMounted } from "vue";
+import { FolderOpen, X } from "lucide-vue-next";
+import { supabase } from "@/supabase/supabase";
 
 const props = defineProps(["mostrar"]);
-const emit = defineEmits(["cerrar"]);
-const window = ref(globalThis.window);
-const clave =ref(null);
+const emit  = defineEmits(["cerrar"]);
+
+const clave  = ref(null);
 const nombre = ref(null);
 const grupos = ref([]);
 
-const limpiarCampos = () => {
-    clave.value = null;
-    nombre.value = null;
-};
+const limpiarCampos = () => { clave.value = null; nombre.value = null; };
 
 const cargarGrupos = async () => {
-    const {data: dataConsult, error: erroConsult } = await supabase
-        .from('grupos')
-        .select();
-    
-    if(erroConsult){
-        console.error("Error al consultar grupos");
-    }else{
-        grupos.value = dataConsult;
-    }
+  const { data, error } = await supabase.from("grupos").select();
+  if (error) { console.error("Error al consultar grupos"); return; }
+  grupos.value = data;
 };
 
+const seleccionarGrupo = (grupo) => { clave.value = grupo.idgrupo; nombre.value = grupo.nombre; };
+
 const aggGrupo = async () => {
-    await cargarGrupos();
-
-    const existe = grupos.value.find(u => u.idgrupo === clave.value);
-    console.log();
-    
-
-    if(existe){
-        const { data: dataUP, error: errorUp } = await supabase
-            .from('grupos')
-            .update({
-                nombre: nombre.value
-            })
-            .eq('idgrupo',clave.value);
-
-        if(errorUp){
-            console.error("Error al actualizar grupo", errorUp);
-            return;
-        }else{
-            console.log("Grupo actualizdo correctamente");
-            await cargarGrupos();
-            
-        }
-    }else{
-        const { data: dataAgg,  error: errorAgg } = await supabase
-            .from('grupos')
-            .insert([{
-                nombre: nombre.value
-            }])
-            .select();
-
-        if(errorAgg){
-            console.error("Error al agregar grupo", errorAgg);
-            return;
-        }else{
-            console.log("Grupo agregado correctamente", dataAgg[0]);
-            await cargarGrupos();
-            clave.value = dataAgg[0].idgrupo;
-        }
-    }
-
+  await cargarGrupos();
+  const existe = grupos.value.find(u => u.idgrupo === clave.value);
+  if (existe) {
+    const { error } = await supabase.from("grupos").update({ nombre: nombre.value }).eq("idgrupo", clave.value);
+    if (error) { console.error("Error al actualizar grupo", error); return; }
+  } else {
+    const { data, error } = await supabase.from("grupos").insert([{ nombre: nombre.value }]).select();
+    if (error) { console.error("Error al agregar grupo", error); return; }
+    clave.value = data[0].idgrupo;
+  }
+  await cargarGrupos();
 };
 
 const delGrupo = async () => {
-    const { data: dataDel, error: errorDel } = await supabase
-        .from('grupos')
-        .delete()
-        .eq('idgrupo', clave.value);
-    
-    if(errorDel){
-        console.error("Error al eliminar grupo", errorDel);
-    }else{
-        console.log("Grupo eliminado correctamnete");
-        await cargarGrupos();
-        limpiarCampos();
-    }
+  const { error } = await supabase.from("grupos").delete().eq("idgrupo", clave.value);
+  if (error) { console.error("Error al eliminar grupo", error); return; }
+  await cargarGrupos(); limpiarCampos();
 };
 
-const seleccionarGrupo = (grupo) => {
-    clave.value = grupo.idgrupo;
-    nombre.value = grupo.nombre;
-};
-
-onMounted(() => {
-    cargarGrupos();
-})
-
+onMounted(() => { cargarGrupos(); });
 </script>
 
 <style scoped>
-/*Para quitar las flechas del spinner*/
-input[type=number]::-webkit-inner-spin-button, 
-input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 1100;
 }
-
-.custom-draggable {
-  outline: none !important;
-  border: none !important;
+.modal-card {
+  background: #fff; border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+  width: 560px; max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
 }
-
-.vue-draggable-resizable .handle {
-  display: none !important;
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
 }
-
-.internal-frame {
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+.modal-header-left {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 700; color: #111;
 }
-
-.header {
-    background: rgb(247, 219, 75);
-    color: white;
-    padding: 5px 20px;
-    font-weight: bold;
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
-    position: relative;
-    text-align: left;
+.modal-icon {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: #e6fff0; color: #2db760;
+  display: flex; align-items: center; justify-content: center;
 }
-
 .close-btn {
-    padding: 0 !important;
-    width: 21px;
-    height: 21px;
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    bottom: 2px;
-    background: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-    margin-right: 4px;
-    font-size: 13px;
+  width: 28px; height: 28px; border: none; background: #f5f5f5;
+  border-radius: 7px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #888;
 }
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
+.modal-body { display: flex; flex: 1; overflow: hidden; 
+padding: 10px 36px 32px 32px;}
 
-.close-btn:hover {
-    background-color: rgb(209, 0, 0);
+.split-layout { display: flex; flex: 1; overflow: hidden; }
+.tabla-panel {
+  width: 220px; flex-shrink: 0;
+  border-right: 1px solid #f0f0f0;
+  display: flex; flex-direction: column;
+  padding: 12px; overflow: hidden;
 }
-
-.content {
-    padding: 20px;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
+.panel-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: #bbb; margin: 0 0 8px; flex-shrink: 0;
 }
-
-.button-group {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 15px;
-    margin-bottom: 20px;
-    padding-right: 1px;
+.tabla-wrapper { flex: 1; overflow-y: auto; }
+.tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla th {
+  text-align: left; padding: 7px 6px;
+  font-size: 11px; font-weight: 600; color: #aaa;
+  text-transform: uppercase; border-bottom: 1px solid #f0f0f0;
+  position: sticky; top: 0; background: #fff;
 }
-
-.input-frame {
-    border: 1px solid #b6b6b6;
-    border-radius: 10px;
-    padding: 10px;
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
+.tabla td { padding: 7px 6px; color: #333; border-bottom: 1px solid #f8f8f8; cursor: pointer; }
+.tabla tr:hover td { background: #f8f8f8; }
+.tabla tr.selected td { background: #f0fdf5; }
+.tabla-empty { text-align: center; color: #ccc; padding: 16px 0; font-size: 13px; }
+.form-panel {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 12px 16px; overflow-y: auto;
 }
-
-.input-row {
-    display: flex;
-    align-items: center;
-    gap: 40px;
+.fields { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.field-group { display: flex; flex-direction: column; gap: 4px; }
+.field-label {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.05em; color: #bbb;
 }
-
-.input-row label {
-    width: 90px;
-    color: #3e3e3e;
+.field-input {
+  padding: 9px 12px; border: 1.5px solid #e5e5e5; border-radius: 9px;
+  font-size: 13px; color: #111; outline: none; transition: border-color 0.2s;
 }
-
-.input-tabla {
-    width: 100%;
-    max-width: 260px;
-    padding: 5px;
-    border: 1px solid #b6b6b6;
-    border-radius: 4px;
-    text-align: left;
+.field-input:focus { border-color: #2db760; }
+.field-input--readonly { background: #fafafa; color: #999; cursor: default; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.form-actions {
+  display: flex; gap: 8px; padding-top: 12px; margin-top: 8px;
+  border-top: 1px solid #f0f0f0; flex-shrink: 0;
 }
-
-.input-chico {
-    width: 80px;
+.btn-secondary {
+  padding: 8px 14px; border: 1.5px solid #e5e5e5; border-radius: 9px;
+  background: #fff; font-size: 13px; font-weight: 600; color: #555; cursor: pointer;
 }
-
-.input-mediano {
-    width: 120px;
+.btn-secondary:hover { background: #f5f5f5; }
+.btn-danger {
+  padding: 8px 14px; border: 1.5px solid #fecaca; border-radius: 9px;
+  background: #fff; font-size: 13px; font-weight: 600; color: #e53935; cursor: pointer;
 }
-
-.tabla-wrapper {
-    max-height: 230px;
-    overflow: auto;
-    border: 1px solid #ccc;
-    margin-top: 20px;
+.btn-danger:hover { background: #fff0f0; }
+.btn-primary {
+  flex: 1; padding: 8px 14px; border: none; border-radius: 9px;
+  background: #2db760; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer;
 }
-
-.tablaUsuarios {
-    border-collapse: collapse;
-    table-layout: fixed;
-    width: 100%;
-    cursor: pointer;
-}
-
-.tablaUsuarios th,
-.tablaUsuarios td {
-    padding: 3px 8px;
-    text-align: left;
-    border: 1px solid #ccc;
-    font-weight: normal;
-    color: #3e3e3e;
-}
-
-.tablaUsuarios thead th {
-    position: sticky;
-    top: 0;
-    background-color: #e7e7e7;
-    z-index: 1;
-}
-
-.tablaUsuarios th:nth-child(1) {
-    width: 30px;
-}
-
-.tablaUsuarios th:nth-child(2) {
-    width: 100px;
-}
-
-button {
-    width: 133px;
-    padding: 5px 10px;
-    border: none;
-    background-color: rgb(130, 165, 243);
-    color: white;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.button:hover {
-    background-color: rgb(105, 133, 194);
-}
-
-.agregar-producto {
-    font-size: 16px;
-}
+.btn-primary:hover { background: #239e51; }
 </style>

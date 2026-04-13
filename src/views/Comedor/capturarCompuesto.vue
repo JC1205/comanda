@@ -1,71 +1,87 @@
 <template>
-  <div v-if="mostrar">
-    <vue-draggable-resizable 
-      :w="500" 
-      :h="500" 
-      :x="window.innerWidth / 2 - 270" 
-      :y="window.innerHeight / 2 - 330" 
-      :resizable="false"
-      class="custom-draggable">
-      <div class="internal-frame">
-        <div class="header">
-          Captura productos compuestos
-          <button class="close-btn" @click="$emit('cerrar')">X</button>
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><Layers :size="18" /></div>
+          <span>Captura productos compuestos</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="16" /></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Grupos de modificadores -->
+        <div class="section">
+          <p class="panel-label">Grupos</p>
+          <div class="btn-grid">
+            <button
+              v-for="(grupo, index) in grupModifcadores"
+              :key="grupo.idgrupomod"
+              class="selector-btn"
+              :class="{ 'selector-btn--active': grupoSeleccionadoId === grupo.idgrupomod }"
+              @click="mostrarGrupo(index)"
+            >
+              {{ grupo.nombre }}
+              <span class="mod-max-badge">máx. {{ grupo.modificadoresmax }}</span>
+            </button>
+          </div>
         </div>
 
-        <div class="content">
-          <p class="mod">Modificadores</p>
-          <div class="grupo-modificador-wrapper">
-  <label>Grupos</label>
-  <div class="group-buttons">
-    <button 
-      v-for="(grupo, index) in grupModifcadores" 
-      :key="grupo.idgrupomod" 
-      @click="mostrarGrupo(index)">
-      {{ grupo.nombre }}
-    </button>
-  </div>
+        <!-- Modificadores del grupo seleccionado -->
+        <div v-if="modificadores?.length" class="section">
+          <div class="section-header">
+            <p class="panel-label">Modificadores</p>
+            <span class="restantes-badge">
+              Restantes: {{ modMaximo }}
+            </span>
+          </div>
+          <div class="btn-grid">
+            <button
+              v-for="modificador in modificadores"
+              :key="modificador.idmodificador"
+              class="selector-btn selector-btn--mod"
+              :disabled="modMaximo === 0"
+              @click="agregarModificador(modificador.idmodificador)"
+            >
+              {{ modificador.nombre }}
+            </button>
+          </div>
+        </div>
 
-  <div v-if="modificadores?.length">
-    <label class="modificadores-label">Modificadores de productos</label>
-    <div class="modificadores-buttons">
-      <button 
-        v-for="modificador in modificadores" 
-        :key="modificador.idmodificador" 
-        @click="agregarModificador(modificador.idmodificador)">
-        {{ modificador.nombre }}
-      </button>
-    </div>
-  </div>
-</div>
+        <!-- Estado vacío -->
+        <div v-if="!grupModifcadores.length" class="empty-state">
+          <Layers :size="32" class="empty-icon" />
+          <p>Cargando grupos de modificadores...</p>
         </div>
 
       </div>
-    </vue-draggable-resizable>
+
+    </div>
   </div>
 </template>
 
 <script setup>
 import { supabase } from "@/supabase/supabase";
 import { defineEmits, defineProps, nextTick, ref, watch } from "vue";
-import VueDraggableResizable from "vue-draggable-resizable";
-import "vue-draggable-resizable/style.css";
-import { idProducto, idModificador} from "@/store/auth.js";
+import { Layers, X } from "lucide-vue-next";
+import { idProducto, idModificador } from "@/store/auth.js";
 
-// Props y eventos
 const props = defineProps(["mostrar"]);
-const emit = defineEmits(["cerrar","actualizar"]);
+const emit  = defineEmits(["cerrar", "actualizar"]);
 
-// Variables
-const montoInicial = ref(null);
-const alertaVisible = ref(false);
-const window = ref(globalThis.window);
+const grupModifcadores    = ref([]);
+const modificadores       = ref(null);
+const cantidadgrupMod     = ref(0);
+const contadorgrup        = ref(0);
+const modMaximo           = ref(0);
+const grupoSeleccionadoId = ref(null);
 
-const grupModifcadores = ref([]);
-// Fecha y Hora en formato correcto
+// ── Cargar grupos de modificadores del producto activo ────────
 async function cargarGruposModificadores() {
   const { data, error } = await supabase
-    .from('prodgrupmodificador')
+    .from("prodgrupmodificador")
     .select(`
       idprodgrupmod,
       idgrupomod,
@@ -74,285 +90,193 @@ async function cargarGruposModificadores() {
         modificadoresmax
       )
     `)
-    .eq('idproducto', idProducto.value);
+    .eq("idproducto", idProducto.value);
 
-  if (error) {
-    console.error("Error gruposmod ", error);
+  if (error) { console.error("Error gruposmod", error); return; }
+
+  grupModifcadores.value = data.map(item => ({
+    idgrupomod:       item.idgrupomod,
+    nombre:           item.grupomodificador?.nombre ?? "",
+    modificadoresmax: item.grupomodificador?.modificadoresmax ?? 0,
+  }));
+
+  cantidadgrupMod.value = grupModifcadores.value.length;
+  modMaximo.value       = grupModifcadores.value[0]?.modificadoresmax ?? 0;
+
+  await nextTick();
+  cargarModificadores();
+}
+
+// ── Cargar modificadores del grupo actual ─────────────────────
+async function cargarModificadores() {
+  if (contadorgrup.value === cantidadgrupMod.value) {
+    emit("cerrar");
     return;
   }
 
-  const gruposFormateados = data.map(item => ({
-    idgrupomod: item.idgrupomod,
-    nombre: item.grupomodificador?.nombre ?? '',
-    modificadoresmax: item.grupomodificador?.modificadoresmax ?? 0
-  }));
+  const idgrupo = grupModifcadores.value[contadorgrup.value].idgrupomod;
 
-  grupModifcadores.value = gruposFormateados;
-  cantidadgrupMod.value = grupModifcadores.value.length;
-  modMaximo.value = grupModifcadores.value[0].modificadoresmax;
-  await nextTick()
-  cargarModificadores();
-  
+  const { data, error } = await supabase
+    .from("modificadores").select().eq("idgrupomod", idgrupo);
+  if (error) { console.error("Error al obtener modificadores", error); return; }
+  modificadores.value = data;
 
-
-  console.log(grupModifcadores.value.length);
-  
-};
-const modificadores = ref(null);
-const cantidadgrupMod = ref(0);
-const contadorgrup = ref(0);
-const modMaximo = ref(0);
-
-async function cargarModificadores() {
-    if(contadorgrup.value === cantidadgrupMod.value){
-        emit('cerrar');
-        return;
-    }
-    const { data, error } = await supabase
-        .from('modificadores')
-        .select()
-        .eq('idgrupomod', grupModifcadores.value[contadorgrup.value].idgrupomod);
-    if(error){
-        console.error("Error al obtener modificadores ", error);
-        return;
-    }
-    console.log("Asi va el contadotr de grupos: ",contadorgrup.value);
-    
-    modificadores.value = data;
-    
-    const{ data: data2, error: error2 } = await supabase
-        .from('grupomodificador')
-        .select()
-        .eq('idgrupomod', grupModifcadores.value[contadorgrup.value].idgrupomod);
-    if(error2){
-        console.error("Error al obtener grupoMod ",error2);
-        return;
-    }
-
-    modMaximo.value = data2[0].modificadoresmax;
-    
-    
+  const { data: data2, error: error2 } = await supabase
+    .from("grupomodificador").select().eq("idgrupomod", idgrupo);
+  if (error2) { console.error("Error al obtener grupoMod", error2); return; }
+  modMaximo.value = data2[0].modificadoresmax;
 }
 
-async function agregarModificador(idmodificador){
-    console.log("Modificador antes ",modMaximo.value);
-    modMaximo.value --;
-    console.log("Modificador despues ",modMaximo.value);
-    idModificador.value = idmodificador;
-    emit("actualizar");
-    if(modMaximo.value === 0){
-        contadorgrup.value ++;
-        cargarModificadores();
-    }
-};
-
-
-watch(idProducto, (newValue) => {
-        if (newValue !== null && newValue !== undefined) {
-            cargarGruposModificadores();
-                      
-        }
-    }, { immediate: true });
-
-
-//nuevo
-
-const grupoSeleccionadoId = ref(null);
-
+// ── Seleccionar grupo manualmente ─────────────────────────────
 function mostrarGrupo(index) {
   grupoSeleccionadoId.value = grupModifcadores.value[index].idgrupomod;
-  contadorgrup.value = index; // para mantener compatibilidad con tu lógica
+  contadorgrup.value        = index;
   cargarModificadores();
 }
+
+// ── Agregar modificador al carrito ────────────────────────────
+async function agregarModificador(idmodificador) {
+  modMaximo.value--;
+  idModificador.value = idmodificador;
+  emit("actualizar");
+
+  if (modMaximo.value === 0) {
+    contadorgrup.value++;
+    cargarModificadores();
+  }
+}
+
+// ── Limpiar al cerrar ─────────────────────────────────────────
+function limpiarEstado() {
+  setTimeout(() => {
+    grupModifcadores.value    = [];
+    modificadores.value       = null;
+    cantidadgrupMod.value     = 0;
+    contadorgrup.value        = 0;
+    modMaximo.value           = 0;
+    grupoSeleccionadoId.value = null;
+  }, 200);
+}
+
+watch(idProducto, (v) => {
+  if (v != null) cargarGruposModificadores();
+}, { immediate: true });
 
 watch(() => props.mostrar, async (visible) => {
   if (visible) {
-    // Se abrió: cargar datos
     await cargarGruposModificadores();
   } else {
-    // Se cerró: limpiar después de un pequeño delay
-    setTimeout(() => {
-      grupModifcadores.value = [];
-      modificadores.value = null;
-      cantidadgrupMod.value = 0;
-      contadorgrup.value = 0;
-      modMaximo.value = 0;
-      grupoSeleccionadoId.value = null;
-      montoInicial.value = null;
-      alertaVisible.value = false;
-    }, 200); // pequeño delay para evitar conflicto visual
+    limpiarEstado();
   }
 });
 </script>
 
 <style scoped>
-/*Para quitar las flechas del spinner*/
-input[type=number]::-webkit-inner-spin-button, 
-  input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-  }
-  .custom-draggable {
-    outline: none !important;
-    border: none !important;
-  }
-/* Estilos para eliminar líneas punteadas de vue-draggable-resizable */
-.custom-draggable {
-  outline: none !important;
-  border: none !important;
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
 }
 
-.custom-draggable > div {
-  outline: none !important;
-  border: none !important;
+.modal-card {
+  background: #fff; border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+  width: 520px; max-height: 85vh;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 
-.vue-draggable-resizable .handle {
-  display: none !important;
+/* ── Header ────────────────────────────────────────────────── */
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
 }
 
-.vue-draggable-resizable .handle-tl,
-.vue-draggable-resizable .handle-tr,
-.vue-draggable-resizable .handle-bl,
-.vue-draggable-resizable .handle-br {
-  display: none !important;
+.modal-header-left {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700; color: #111;
 }
 
-.internal-frame {
-  outline: none;
-  position: fixed;
-  background: white;
-  border: 1px solid #ccc;
-  border-radius: 15px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  width: 120%;
-  height: 110%;
-  display: flex;
-  flex-direction: column;
-}
-
-.header {
-    background: rgb(247, 219, 75);
-    color: white;
-    padding: 5px 20px;
-    font-weight: bold;
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
-    position: relative;
-    text-align: left;
+.modal-icon {
+  width: 34px; height: 34px; border-radius: 10px;
+  background: #ede9fe; color: #7c3aed;
+  display: flex; align-items: center; justify-content: center;
 }
 
 .close-btn {
-    padding: 0 !important;
-    width: 21px;
-    height: 21px;
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    bottom: 2px;
-    background: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-    margin-right: 4px;
-    font-size: 13px;
+  width: 30px; height: 30px; border: none; background: #f5f5f5;
+  border-radius: 8px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: #888; transition: background 0.15s;
+}
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
+
+/* ── Body ──────────────────────────────────────────────────── */
+.modal-body {
+  flex: 1; overflow-y: auto;
+  padding: 16px; display: flex; flex-direction: column; gap: 20px;
 }
 
-.close-btn:hover{
-    background-color: rgb(209, 0, 0);
-}
-.content {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
+.section { display: flex; flex-direction: column; gap: 10px; }
+
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
 }
 
-.button-group {
-  display: flex;
-
-  gap: 10px;
-  margin-top: 10px;
-  margin-bottom: 30px;
+.panel-label {
+  font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: #bbb; margin: 0;
 }
 
-button {
-  width: 110px;
-  padding: 5px 15px;
-  border: none;
-  background-color: rgb(130, 165, 243);
-  color: white;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-.button:hover {
-    background-color: rgb(105, 133, 194);
+.restantes-badge {
+  font-size: 12px; font-weight: 700;
+  background: #ede9fe; color: #7c3aed;
+  padding: 3px 10px; border-radius: 20px;
 }
 
-.cancel-btn {
-  background-color: rgb(126 ,126, 126);
+/* ── Botones de grupos ─────────────────────────────────────── */
+.btn-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.selector-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px;
+  border: 1.5px solid #e5e5e5; border-radius: 10px;
+  background: #fff; font-size: 13px; font-weight: 600;
+  color: #444; cursor: pointer; transition: all 0.15s ease;
 }
 
-.cancel-btn:hover {
-    background-color: rgb(92, 92, 92);
+.selector-btn:hover:not(:disabled) {
+  background: #f3f0ff; border-color: #7c3aed; color: #7c3aed;
 }
 
-input {
-    padding-left: 10px;
-    padding: 5px;
-    border: 1px solid #6b1616;
-    border-radius: 4px;
-    }
-
-.grupo-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+.selector-btn--active {
+  background: #f3f0ff; border-color: #7c3aed; color: #7c3aed;
 }
 
-/* Modificadores en fila */
-.group-buttons-horizontal {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+.selector-btn--mod {
+  background: #fafafa; border-color: #e5e5e5; color: #333;
+}
+.selector-btn--mod:hover:not(:disabled) {
+  background: #f0fdf5; border-color: #2db760; color: #2db760;
+}
+.selector-btn--mod:disabled {
+  opacity: 0.35; cursor: not-allowed;
 }
 
-.grupo-modificador-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-start;
-  width: 100%;
+.mod-max-badge {
+  font-size: 10px; font-weight: 600;
+  background: #ede9fe; color: #7c3aed;
+  padding: 2px 7px; border-radius: 20px;
 }
 
-.group-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+/* ── Estado vacío ──────────────────────────────────────────── */
+.empty-state {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; color: #ccc; padding: 32px;
 }
 
-.modificadores-label {
-  margin-top: 15px;
-  font-size: 15px;
-  color: #333;
-}
-
-.modificadores-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-.mod{
-  font-weight: bold;
-  margin-bottom: 10px;
-}
+.empty-state p { font-size: 13px; margin: 0; }
+.empty-icon { opacity: 0.3; }
 </style>

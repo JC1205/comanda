@@ -95,7 +95,7 @@ const abrirCuenta = async () => {
   background: #fff;
   border-radius: 18px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.14);
-  width: 340px;
+  width: 360px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -105,7 +105,7 @@ const abrirCuenta = async () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 25px 36px;
   border-bottom: 1px solid #f0f0f0;
 }
 
@@ -144,7 +144,7 @@ const abrirCuenta = async () => {
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-.modal-body { padding: 20px; }
+.modal-body { padding: 10px 36px 32px 32px; }
 
 .field-group { display: flex; flex-direction: column; gap: 6px; }
 
@@ -170,7 +170,7 @@ const abrirCuenta = async () => {
 .modal-footer {
   display: flex;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 25px 36px;
   border-top: 1px solid #f0f0f0;
 }
 

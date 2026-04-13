@@ -31,7 +31,7 @@
         </div>
 
         <div class="menu-item" @click="abrirCorte">
-          <img src="/caja-registradora.png" class="icon">
+          <img src="/receipt.png" class="icon">
           <span>Corte de caja</span>
         </div>
 

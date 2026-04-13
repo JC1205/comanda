@@ -1,349 +1,181 @@
 <template>
-    <div v-if="mostrar">
-      <vue-draggable-resizable 
-        :w="540" 
-        :h="570" 
-        :x="window.innerWidth / 2 - 300" 
-        :y="window.innerHeight / 2 - 330" 
-        :resizable="false"
-        class="custom-draggable"
-      >
-        <div class="internal-frame">
-          <div class="header">
-            Producto compuesto
-            <button class="close-btn" @click="$emit('cerrar')">X</button>
-          </div>
-          <div class="content">
+  <div v-if="mostrar" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div class="modal-icon"><Layers :size="16" /></div>
+          <span>Producto compuesto</span>
+        </div>
+        <button class="close-btn" @click="$emit('cerrar')"><X :size="15" /></button>
+      </div>
 
-            <h2 class="section-title">Grupos de modificadores</h2>
-  
-            <div class="button-group">
-              
-              <button  @click="abrirAsignarMod()" class="button">Asignar</button>
-              <button  @click="abrirEditarGrupo()" class="button">Editar</button>
+      <div class="modal-body">
+
+        <!-- Grupos de modificadores -->
+        <div class="section">
+          <div class="section-header">
+            <p class="section-title">Grupos de modificadores</p>
+            <div class="section-actions">
+              <button class="btn-sm" @click="abrirAsignarMod">Asignar</button>
+              <button class="btn-sm" @click="abrirEditarGrupo">Editar</button>
             </div>
-  
-            <div class="tabla-wrapper">
-                <table class="tablaProductos1">
-                    <thead>
-                    <tr>
-                        <th>Clave</th>
-                        <th>Descripción</th>
-                        <th>Modificadores máx.</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                      <tr v-for="grupoAnadido in gruposAnadidos" :key="grupoAnadido.idgrupomod">
-                        <td>{{ grupoAnadido.idgrupomod }}</td>
-                        <td>{{ grupoAnadido.nombre }}</td>
-                        <td>{{ grupoAnadido.modificadoresmax }}</td>
-                    </tr>
-                    </tbody>
-                </table>
-                </div>
-  
-            <h2 class="section-title">Modificadores de productos</h2>
-  
-            <div class="button-group">
-            
-              <button @click="abrirEditarModProd()" class="button">Editar</button>
-            </div>
-  
-            <div class="tabla-wrapper">
-  <table class="tablaProductos2">
-    <thead>
-            <tr>
-                <th>Clave</th>
-                <th>Descripción</th>
-                <th>Precio</th>
-                <th>Grupo</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr v-for="modifi in modificadores" :key="modifi.idmodificador">
-                <td>{{ modifi.idmodificador }}</td>
-                <td>{{ modifi.nombre }}</td>
-                <td>{{ modifi.precio }}</td>
-                <td>{{ obtenerNombreGrupoMod(modifi.idgrupomod) }}</td>
-            </tr>
-            </tbody>
-        </table>
-        </div>
-  
+          </div>
+          <div class="tabla-wrapper">
+            <table class="tabla">
+              <thead><tr><th>Clave</th><th>Descripción</th><th>Máx. modif.</th></tr></thead>
+              <tbody>
+                <tr v-for="g in gruposAnadidos" :key="g.idgrupomod">
+                  <td>{{ g.idgrupomod }}</td>
+                  <td>{{ g.nombre }}</td>
+                  <td>{{ g.modificadoresmax }}</td>
+                </tr>
+                <tr v-if="!gruposAnadidos.length">
+                  <td colspan="3" class="tabla-empty">Sin grupos asignados</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
-      </vue-draggable-resizable>
+
+        <div class="divider" />
+
+        <!-- Modificadores de productos -->
+        <div class="section">
+          <div class="section-header">
+            <p class="section-title">Modificadores de productos</p>
+            <div class="section-actions">
+              <button class="btn-sm" @click="abrirEditarModProd">Editar</button>
+            </div>
+          </div>
+          <div class="tabla-wrapper">
+            <table class="tabla">
+              <thead><tr><th>Clave</th><th>Descripción</th><th>Precio</th><th>Grupo</th></tr></thead>
+              <tbody>
+                <tr v-for="m in modificadores" :key="m.idmodificador">
+                  <td>{{ m.idmodificador }}</td>
+                  <td>{{ m.nombre }}</td>
+                  <td>${{ m.precio }}</td>
+                  <td>{{ obtenerNombreGrupoMod(m.idgrupomod) }}</td>
+                </tr>
+                <tr v-if="!modificadores.length">
+                  <td colspan="4" class="tabla-empty">Sin modificadores</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
     </div>
-    
-    <editarGrupo :mostrar="mostrarEditarGrupo" @cerrar="mostrarEditarGrupo = false" @actualizado="actualizarDespuesDeEditar()" />
-    
-    <editarModProd :mostrar="mostrarEditarModProd" @cerrar="mostrarEditarModProd = false" @actualizado="actualizarDespuesDeEditar()" />
 
-    <asignarMod :mostrar="mostrarAsignarMod" @cerrar="mostrarAsignarMod = false" @actualizado="actualizarDespuesDeEditar()"/>
-  </template>
-  
-  <script setup>
-  import { defineEmits, defineProps, ref, onMounted, watch } from "vue";
-  import { supabase } from "../supabase/supabase.js";
-  import VueDraggableResizable from "vue-draggable-resizable";
-  import "vue-draggable-resizable/style.css";
-  import editarGrupo from "./ProductosCompuestos/editarGrupoModificador.vue";
-  import editarModProd from "./ProductosCompuestos/editarModProd.vue";
-  import asignarMod from "./ProductosCompuestos/asignarMod.vue";
-  import { cargarGruposModif, claveProducto } from "../store/auth.js";
+    <editarGrupo   :mostrar="mostrarEditarGrupo"   @cerrar="mostrarEditarGrupo = false"   @actualizado="actualizarDespuesDeEditar" />
+    <editarModProd :mostrar="mostrarEditarModProd"  @cerrar="mostrarEditarModProd = false"  @actualizado="actualizarDespuesDeEditar" />
+    <asignarMod    :mostrar="mostrarAsignarMod"     @cerrar="mostrarAsignarMod = false"     @actualizado="actualizarDespuesDeEditar" />
+  </div>
+</template>
 
-  const props = defineProps(["mostrar"]);
-  const emit = defineEmits(["cerrar"]);
-  const window = ref(globalThis.window);
-  const mostrarAggGrupo = ref(false);
-  const mostrarEditarGrupo = ref(false);
-  const mostrarAggModProd = ref(false);
-  const mostrarEditarModProd = ref(false);
-  const mostrarAsignarMod = ref(false);
+<script setup>
+import { defineEmits, defineProps, ref, onMounted, watch } from "vue";
+import { Layers, X } from "lucide-vue-next";
+import { supabase } from "../supabase/supabase.js";
+import editarGrupo   from "./ProductosCompuestos/editarGrupoModificador.vue";
+import editarModProd from "./ProductosCompuestos/editarModProd.vue";
+import asignarMod    from "./ProductosCompuestos/asignarMod.vue";
+import { cargarGruposModif, claveProducto } from "../store/auth.js";
 
-  const gruposAnadidos = ref([]);
+const props = defineProps(["mostrar"]);
+const emit  = defineEmits(["cerrar"]);
 
-  // Abrir Agg grupos
-const abrirAggGrupo = () => {
-  mostrarAggGrupo.value = true;
-};
+const mostrarEditarGrupo   = ref(false);
+const mostrarEditarModProd = ref(false);
+const mostrarAsignarMod    = ref(false);
+const gruposAnadidos = ref([]);
+const modificadores  = ref([]);
 
-  // Abrir editar grupos
-  const abrirEditarGrupo = () => {
-  mostrarEditarGrupo.value = true;
-};
+const abrirEditarGrupo   = () => { mostrarEditarGrupo.value = true; };
+const abrirEditarModProd = () => { mostrarEditarModProd.value = true; };
+const abrirAsignarMod    = async () => { mostrarAsignarMod.value = true; await cargarGruposModif(); };
 
-  // Abrir editar grupos
-  const abrirAggModProd = () => {
-  mostrarAggModProd.value = true;
-};
-
-  // Abrir editar grupos
-  const abrirEditarModProd = () => {
-  mostrarEditarModProd.value = true;
-};
-
-
-  // Abrir asignar
-  const abrirAsignarMod = async () => {
-  mostrarAsignarMod.value = true;
-  await cargarGruposModif();
-};
-
-const actualizarDespuesDeEditar = () => {
-  console.log("Actualizando datos después de edición...");
-  cargarGruposAsignados();
-  obtenerModificadores();
-};
+const actualizarDespuesDeEditar = () => { cargarGruposAsignados(); obtenerModificadores(); };
 
 const cargarGruposAsignados = async () => {
   try {
-    const productoId = claveProducto.value;
-    
-    // Consulta que une la tabla intermedia con la tabla de grupos modificadores
     const { data, error } = await supabase
-      .from('prodgrupmodificador')
-      .select(`
-        grupomodificador!inner(*)
-      `)
-      .eq('idproducto', productoId);
-    
-    if (error) {
-      throw new Error(`Error al obtener grupos asignados: ${error.message}`);
-    }
-    
+      .from("prodgrupmodificador")
+      .select(`grupomodificador!inner(*)`)
+      .eq("idproducto", claveProducto.value);
+    if (error) throw new Error(error.message);
     gruposAnadidos.value = data.map(item => item.grupomodificador);
-   
-  
-    
-  } catch (error) {
-    console.error("Error al cargar grupos asignados:", error);
+  } catch (e) {
+    console.error("Error al cargar grupos asignados:", e);
     gruposAnadidos.value = [];
   }
 };
 
-  const obtenerNombreGrupoMod = (idgrupomod) =>{
-    const mod = gruposAnadidos.value.find(g => g.idgrupomod === idgrupomod);
-    return mod ? mod.nombre : 'Sin grupo modificador';
-  };
-
-const modificadores = ref([]);
-const obtenerModificadores = async () => {
-  const { data: dataMod, error: errorMod } = await supabase 
-      .from('modificadores')
-      .select();
-
-  if(errorMod){
-      console.error("Error al obtener modificadores ",errorMod);
-  }else{
-      modificadores.value = dataMod;
-  }
+const obtenerNombreGrupoMod = (idgrupomod) => {
+  const mod = gruposAnadidos.value.find(g => g.idgrupomod === idgrupomod);
+  return mod ? mod.nombre : "Sin grupo modificador";
 };
 
+const obtenerModificadores = async () => {
+  const { data, error } = await supabase.from("modificadores").select();
+  if (error) { console.error("Error al obtener modificadores", error); return; }
+  modificadores.value = data;
+};
 
-watch(claveProducto, (newValue) => {
-  if (newValue !== null && newValue !== undefined) {
-    console.log('ID del producto disponible:', newValue);
-    cargarGruposAsignados();
-  }
-}, { immediate: true });
+watch(claveProducto, (v) => { if (v != null) cargarGruposAsignados(); }, { immediate: true });
+onMounted(() => { cargarGruposAsignados(); obtenerModificadores(); });
+</script>
 
-onMounted(() => {
-  cargarGruposAsignados();
-  obtenerModificadores();
-});
-
-  </script>
-  
-  <style scoped>
-  /*Para quitar las flechas del spinner*/
-  input[type=number]::-webkit-inner-spin-button, 
-  input[type=number]::-webkit-outer-spin-button { 
-    -webkit-appearance: none; 
-    margin: 0; 
-  }
-  .custom-draggable {
-    outline: none !important;
-    border: none !important;
-  }
-
-  .custom-draggable {
-    outline: none !important;
-    border: none !important;
-  }
-  
-  .custom-draggable > div {
-    outline: none !important;
-    border: none !important;
-  }
-  
-  .vue-draggable-resizable .handle,
-  .vue-draggable-resizable .handle-tl,
-  .vue-draggable-resizable .handle-tr,
-  .vue-draggable-resizable .handle-bl,
-  .vue-draggable-resizable .handle-br {
-    display: none !important;
-  }
-  
-  .internal-frame {
-    background: white;
-    border: 1px solid #ccc;
-    border-radius: 15px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  .header {
-    background: rgb(247, 219, 75);
-    color: white;
-    padding: 5px 20px;
-    font-weight: bold;
-    border-top-left-radius: 15px;
-    border-top-right-radius: 15px;
-    position: relative;
-    text-align: left;
+<style scoped>
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 1050;
 }
-
+.modal-card {
+  background: #fff; border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+  width: 620px; max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+}
+.modal-header-left {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 700; color: #111;
+}
+.modal-icon {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: #ede9fe; color: #7c3aed;
+  display: flex; align-items: center; justify-content: center;
+}
 .close-btn {
-    padding: 0 !important;
-    width: 21px;
-    height: 21px;
-    position: absolute;
-    right: 2px;
-    top: 2px;
-    bottom: 2px;
-    background: red;
-    color: white;
-    border: none;
-    cursor: pointer;
-    border-radius: 5px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 4px;
-    margin-right: 4px;
-    font-size: 13px;
+  width: 28px; height: 28px; border: none; background: #f5f5f5;
+  border-radius: 7px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #888;
 }
-
-.close-btn:hover{
-    background-color: rgb(209, 0, 0);
+.close-btn:hover { background: #ffe5e5; color: #e53935; }
+.modal-body { flex: 1; overflow-y: auto; padding: 10px 36px 32px 32px; display: flex; flex-direction: column; gap: 0; }
+.section { display: flex; flex-direction: column; gap: 10px; }
+.section-header { display: flex; align-items: center; justify-content: space-between; }
+.section-title { font-size: 13px; font-weight: 700; color: #333; margin: 0; }
+.section-actions { display: flex; gap: 6px; }
+.btn-sm {
+  padding: 6px 12px; border: 1.5px solid #e5e5e5; border-radius: 8px;
+  background: #fff; font-size: 12px; font-weight: 600; color: #555; cursor: pointer;
+  transition: all 0.15s;
 }
-
-  .content {
-    padding-left: 20px;
-    text-align: left;
-  }
-  
-  .section-title {
-    padding-top: 10px;
-    margin-bottom: 10px;
-    color: #333;
-  }
-  
-  .button-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 15px;
-  }
-  
-  button {
-    width: 110px;
-    padding: 5px 15px;
-    border: none;
-    background-color: rgb(130, 165, 243);
-    color: white;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    
-  }
-
-  .button:hover {
-    background-color: rgb(105, 133, 194);
+.btn-sm:hover { background: #f5f5f5; border-color: #ccc; }
+.tabla-wrapper { overflow-y: auto; max-height: 160px; }
+.tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabla th {
+  text-align: left; padding: 7px 6px; font-size: 11px; font-weight: 600; color: #aaa;
+  text-transform: uppercase; border-bottom: 1px solid #f0f0f0;
+  position: sticky; top: 0; background: #fff;
 }
-
-  
-  .tabla-wrapper {
-  width: 500px;
-  max-height: 150px;
-  min-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
-  padding-right: 4px;
-  margin-bottom: 20px;
-  display: inline-block;
-}
-  
-  .tablaProductos1, .tablaProductos2 {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto;
-  }
-
-  .tablaProductos1 th:nth-child(3),
-.tablaProductos1 td:nth-child(3) {
-  width: 160px;
-}
-  
-
-.tablaProductos1 th, .tablaProductos2 th,
-.tablaProductos1 td, .tablaProductos2 td {
-    padding: 5px;
-    padding-left: 8px;
-    text-align: left;
-    border: 1px solid #ccc;
-    font-weight: normal;
-    color: #3e3e3e;
-  }
-  
-  .tablaProductos1 thead th, .tablaProductos2 thead th {
-    position: sticky;
-    top: 0;
-    background-color: #e7e7e7;
-    z-index: 1;
-  }
-  </style>
-  
+.tabla td { padding: 7px 6px; color: #333; border-bottom: 1px solid #f8f8f8; }
+.tabla-empty { text-align: center; color: #ccc; padding: 12px 0; font-size: 13px; }
+.divider { height: 1px; background: #f0f0f0; margin: 14px 0; flex-shrink: 0; }
+</style>
