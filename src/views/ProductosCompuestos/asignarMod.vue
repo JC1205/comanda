@@ -1,4 +1,5 @@
 <template>
+    <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -54,6 +55,7 @@
       </div>
     </div>
   </div>
+  </transition>
 </template>
 
 <script setup>
@@ -169,4 +171,27 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .btn-danger:hover { background: #fff0f0; }
 .btn-primary { flex: 1; padding: 7px 12px; border: none; border-radius: 8px; background: #0284c7; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
 .btn-primary:hover { background: #0369a1; }
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+}
+
+.fade-slide-enter-from .modal-card,
+.fade-slide-leave-to .modal-card {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+.fade-slide-enter-to .modal-card,
+.fade-slide-leave-from .modal-card {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 </style>

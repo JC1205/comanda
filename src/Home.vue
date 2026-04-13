@@ -30,7 +30,7 @@
           <span>Movimientos</span>
         </div>
 
-        <div class="menu-item" @click="abrirCorte">
+        <div class="menu-item" :class="{ active: vistaActiva === 'corte' }" @click="abrirCortee">
           <img src="/receipt.png" class="icon">
           <span>Corte de caja</span>
         </div>
@@ -98,6 +98,13 @@
         </div>
       </transition>
 
+<transition name="panel-fade">
+  <div v-if="vistaActiva === 'corte'" class="hero-panel">
+    <GestorCorte :mostrar="vistaActiva === 'corte'" />
+  </div>
+</transition>
+
+
       <transition name="panel-fade">
       <div v-if="vistaActiva === 'ajustes'" class="hero-panel">
         <GestorAjustes :mostrar="true"
@@ -156,6 +163,7 @@ import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
 import GestorPedidos  from "@/views/GestorPedidos.vue";
 import GestorAjustes from "@/views/GestorAjustes.vue";
+import GestorCorte from "@/views/GestorCorte.vue";
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
 const vistaActiva = ref('home');
@@ -165,7 +173,8 @@ const titulos = {
   turno: 'Turnos',
   pedidos: 'Pedidos',
   retiros: 'Movimientos',
-  ajustes: 'Ajustes'
+  ajustes: 'Ajustes',
+  corte:   'Corte de caja',
 };
 
 const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
@@ -178,6 +187,7 @@ const fecha = new Date();
 
 const abrirPedidos = () => setVista('pedidos');
 const abrirAjustes = () => setVista('ajustes');
+const abrirCortee = () => setVista('corte');
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);

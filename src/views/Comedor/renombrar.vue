@@ -1,4 +1,5 @@
 <template>
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -26,6 +27,7 @@
       </div>
     </div>
   </div>
+  </transition>
 </template>
 
 <script setup>
@@ -186,4 +188,27 @@ onMounted(() => { if (idPedido.value) cargarPedido(); });
 .btn-cancel:hover  { background: #eee; }
 .btn-confirm { background: #7c3aed; color: #fff; }
 .btn-confirm:hover { background: #6d28d9; }
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+}
+
+.fade-slide-enter-from .modal-card,
+.fade-slide-leave-to .modal-card {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+.fade-slide-enter-to .modal-card,
+.fade-slide-leave-from .modal-card {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 </style>

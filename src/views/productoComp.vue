@@ -1,4 +1,5 @@
 <template>
+      <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -72,6 +73,7 @@
     <editarModProd :mostrar="mostrarEditarModProd"  @cerrar="mostrarEditarModProd = false"  @actualizado="actualizarDespuesDeEditar" />
     <asignarMod    :mostrar="mostrarAsignarMod"     @cerrar="mostrarAsignarMod = false"     @actualizado="actualizarDespuesDeEditar" />
   </div>
+  </transition>
 </template>
 
 <script setup>
@@ -178,4 +180,27 @@ onMounted(() => { cargarGruposAsignados(); obtenerModificadores(); });
 .tabla td { padding: 7px 6px; color: #333; border-bottom: 1px solid #f8f8f8; }
 .tabla-empty { text-align: center; color: #ccc; padding: 12px 0; font-size: 13px; }
 .divider { height: 1px; background: #f0f0f0; margin: 14px 0; flex-shrink: 0; }
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+}
+
+.fade-slide-enter-from .modal-card,
+.fade-slide-leave-to .modal-card {
+  transform: translateY(-20px);
+  opacity: 0;
+}
+
+.fade-slide-enter-to .modal-card,
+.fade-slide-leave-from .modal-card {
+  transform: translateY(0);
+  opacity: 1;
+}
+
 </style>
