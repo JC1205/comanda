@@ -17,6 +17,11 @@
             <h2 class="card-title">Control de Turno</h2>
             <p class="card-subtitle">Sin turno abierto</p>
           </div>
+          
+          <button class="close-tab-btn" @click="$emit('cerrar')">
+          <X :size="15" />
+          </button>
+
         </div>
 
         <div class="divider" />
@@ -58,6 +63,11 @@
             <h2 class="card-title">Cierre de Turno</h2>
             <p class="card-subtitle">Ingresa los importes declarados</p>
           </div>
+
+          <button class="close-tab-btn" @click="$emit('cerrar')">
+          <X :size="15" />
+        </button>
+
         </div>
 
         <div class="divider" />
@@ -92,6 +102,7 @@
 import { ref } from "vue";
 import { supabase } from "@/supabase/supabase";
 import { userLogin, turno, obtenerTurno, idTurno, numPedidos } from "@/store/auth.js";
+import { X } from "lucide-vue-next";
 
 // ── Props & emits ──────────────────────────────────────────────
 const props = defineProps(["mostrar"]);
@@ -170,7 +181,7 @@ const confirmarCierre = async () => {
 /* ── Card principal ────────────────────────────────────────── */
 .turno-card {
   background: #ffffff;
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 32px 36px;
   width: 100%;
   max-width: 480px;
@@ -392,4 +403,21 @@ const confirmarCierre = async () => {
   flex: 1;
   max-width: 200px;
 }
+
+.close-tab-btn {
+  margin-left: auto;
+  margin-bottom: 6px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  transition: background 0.15s;
+}
+.close-tab-btn:hover { background: #ffe5e5; color: #e53935; }
 </style>

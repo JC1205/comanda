@@ -14,15 +14,10 @@
           <span>Home</span>
         </div>
 
-        <div class="menu-item" @click="abrirComedor">
-          <img src="/mesa.png" class="icon">
-          <span>Comedor</span>
-        </div>
-
-        <div class="menu-item" @click="abrirDomicilio">
-          <img src="/moto.png" class="icon">
-          <span>Domicilio</span>
-        </div>
+    <div class="menu-item" :class="{ active: vistaActiva === 'pedidos' }" @click="abrirPedidos">
+      <img src="/utensils.png" class="icon">
+      <span>Pedidos</span>
+    </div>
 
         <div class="menu-item" :class="{ active: vistaActiva === 'turno' }" @click="abrirPestana">
           <img src="/clock.png" class="icon">
@@ -30,29 +25,20 @@
         </div>
 
 
-        <div class="menu-item" @click="abrirRetiros">
-          <img src="/retirar.png" class="icon">
-          <span>Depósito y retiro</span>
+        <div class="menu-item" :class="{ active: vistaActiva === 'retiros' }" @click="setVista('retiros')">
+          <img src="/arrow-up-down.png" class="icon">
+          <span>Movimientos</span>
         </div>
 
-        <div class="menu-item" @click="abrirCorte">
-          <img src="/caja-registradora.png" class="icon">
+        <div class="menu-item" :class="{ active: vistaActiva === 'corte' }" @click="abrirCortee">
+          <img src="/receipt.png" class="icon">
           <span>Corte de caja</span>
         </div>
 
-        <!-- AJUSTES -->
-        <div class="menu-item" @click.stop="mostrarDropdown = !mostrarDropdown">
-          <img src="/icons8-ajustes-48.png" class="icon">
-          <span>Ajustes</span>
-        </div>
-
-        <transition name="fade">
-          <div v-show="mostrarDropdown" class="dropdown-modern">
-            <div @click="abrirAggProductos(); mostrarDropdown=false">Productos</div>
-            <div @click="abrirAggUsuarios(); mostrarDropdown=false">Usuarios</div>
-            <div @click="abrirImpresoras(); mostrarDropdown=false">Impresoras</div>
-          </div>
-        </transition>
+        <div class="menu-item" :class="{ active: vistaActiva === 'ajustes' }" @click="abrirAjustes">
+        <img src="/settings.png" class="icon">
+        <span>Ajustes</span>
+      </div>
 
       </div>
 
@@ -84,7 +70,7 @@
             <h1>Serve <span>faster.</span><br>Manage <span>smarter.</span></h1>
             <div class="logo-center"></div>
             <p>Everything your restaurant needs, in one place.</p>
-            <button class="btn" @click="abrirComedor">Start Order</button>
+            <button class="btn" @click="abrirPedidos">Start Order</button>
           </div>
         </transition>
 
@@ -99,6 +85,32 @@
             />
           </div>
         </transition>
+
+            <transition name="panel-fade">
+      <div v-if="vistaActiva === 'pedidos'" class="hero-panel">
+        <GestorPedidos />
+      </div>
+    </transition>
+
+          <transition name="panel-fade">
+        <div v-if="vistaActiva === 'retiros'" class="hero-panel">
+          <Retiros :mostrar="true" @irHome="setVista('home')" />
+        </div>
+      </transition>
+
+<transition name="panel-fade">
+  <div v-if="vistaActiva === 'corte'" class="hero-panel">
+    <GestorCorte :mostrar="vistaActiva === 'corte'" />
+  </div>
+</transition>
+
+
+      <transition name="panel-fade">
+      <div v-if="vistaActiva === 'ajustes'" class="hero-panel">
+        <GestorAjustes :mostrar="true"
+              @cerrar="setVista('home')"/>
+      </div>
+    </transition>
 
       </section>
     </main>
@@ -131,11 +143,9 @@
     <!-- MODALES FLOTANTES (NO TOCAR) -->
     <aggProductos :mostrar="mostrarAggProductos" @cerrar="mostrarAggProductos = false" />
     <aggUsuarios  :mostrar="mostrarAggUsuarios"  @cerrar="mostrarAggUsuarios = false" />
-    <comedor      :mostrar="mostrarComedor"      @cerrar="mostrarComedor = false" />
     <impresoras   :mostrar="mostrarImpresoras"   @cerrar="mostrarImpresoras = false" />
-    <retiros      :mostrar="mostrarRetiros"      @cerrar="mostrarRetiros = false" />
     <corte        :mostrar="mostrarCorte"        @cerrar="mostrarCorte = false" />
-    <domicilio    :mostrar="mostrarDomicilio"    @cerrar="mostrarDomicilio = false" />
+
 
   </div>
 </template>
@@ -144,15 +154,16 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useRouter } from "vue-router";
 import aggProductos from "./views/aggProductos.vue";
-import comedor from "./views/comedor.vue";
 import aggUsuarios from "./views/aggUsuarios.vue";
 import GestorTurno from "@/views/GestorTurno.vue";
 import impresoras from "./views/impresoras.vue";
-import retiros from "./views/retiros.vue";
 import corte from "./views/corte.vue";
-import domicilio from "./views/domicilio.vue";
+import Retiros from "./views/retiros.vue";
 import { turno, userName } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
+import GestorPedidos  from "@/views/GestorPedidos.vue";
+import GestorAjustes from "@/views/GestorAjustes.vue";
+import GestorCorte from "@/views/GestorCorte.vue";
 
 // ── Vista activa en el hero (solo turno) ──────────────────────
 const vistaActiva = ref('home');
@@ -160,6 +171,10 @@ const vistaActiva = ref('home');
 const titulos = {
   home:  'Home',
   turno: 'Turnos',
+  pedidos: 'Pedidos',
+  retiros: 'Movimientos',
+  ajustes: 'Ajustes',
+  corte:   'Corte de caja',
 };
 
 const tituloActivo = computed(() => titulos[vistaActiva.value] ?? 'Home');
@@ -169,6 +184,10 @@ const setVista = (vista) => {
 };
 
 const fecha = new Date();
+
+const abrirPedidos = () => setVista('pedidos');
+const abrirAjustes = () => setVista('ajustes');
+const abrirCortee = () => setVista('corte');
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);
@@ -225,6 +244,10 @@ const salir = () => { router.push("/"); };
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+  user-select: none;
+}
 
 .layout {
   display: flex;
