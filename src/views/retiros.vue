@@ -1,22 +1,25 @@
 <template>
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
   <div class="gestor-wrapper">
+
     <div class="modal-card">
 
       <!-- ── TABS ──────────────────────────────────────────── -->
       <div class="tab-bar">
-        <button
-          class="tab-btn"
-          :class="{ active: tab === 'retiro' }"
-          @click="tab = 'retiro'"
-        >
+        <button class="tab-btn" :class="{ active: tab === 'retiro' }" @click="tab = 'retiro'">
           <TrendingDown :size="15" />
           Retiro
         </button>
-        <button
-          class="tab-btn"
-          :class="{ active: tab === 'deposito' }"
-          @click="tab = 'deposito'"
-        >
+        <button class="tab-btn" :class="{ active: tab === 'deposito' }" @click="tab = 'deposito'">
           <TrendingUp :size="15" />
           Depósito
         </button>
@@ -28,7 +31,6 @@
       <!-- ── BODY ──────────────────────────────────────────── -->
       <div class="modal-body">
 
-        <!-- Encabezado dinámico -->
         <div class="mov-header">
           <div class="mov-icon" :class="tab === 'retiro' ? 'mov-icon--retiro' : 'mov-icon--deposito'">
             <component :is="tab === 'retiro' ? TrendingDown : TrendingUp" :size="20" />
@@ -39,13 +41,11 @@
           </div>
         </div>
 
-        <!-- Efectivo disponible -->
         <div class="efectivo-chip">
           <span class="chip-label">Efectivo Disponible</span>
           <span class="chip-amount">${{ efectivoDisponible.toFixed(2) }}</span>
         </div>
 
-        <!-- Monto -->
         <div class="field-group">
           <label class="field-label">{{ tab === 'retiro' ? 'Monto a Retirar' : 'Monto a Depositar' }}</label>
           <div class="input-wrap">
@@ -55,11 +55,11 @@
               type="number"
               class="field-input"
               placeholder="0.00"
+              @keydown="bloquearTeclas"
             />
           </div>
         </div>
 
-        <!-- Concepto -->
         <div class="field-group">
           <label class="field-label">{{ tab === 'retiro' ? 'Motivo del Retiro' : 'Motivo del Depósito' }}</label>
           <textarea
@@ -112,12 +112,23 @@ const limpiarCampos = () => {
   importe.value  = null;
 };
 
-// ── Datos para efectivo disponible (misma lógica que corte) ──
+// ── Alerta ────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Datos para efectivo disponible ───────────────────────────
 const efectivoInicial = ref(0);
 const efectivoCaja    = ref(0);
 const totalRetiros    = ref(0);
 const totalDepositos  = ref(0);
-
 
 const cerrarMovimientos = () => {
   limpiarCampos();
@@ -128,34 +139,47 @@ const efectivoDisponible = computed(() =>
   efectivoInicial.value + efectivoCaja.value - totalRetiros.value + totalDepositos.value
 );
 
-
 const cargarEfectivoDisponible = async () => {
-  // 1. Turno → monto inicial
   const { data: turnoData, error: turnoErr } = await supabase
     .from("turnos").select().eq("idturno", idTurno.value).single();
   if (turnoErr) { console.error("Error al obtener turno", turnoErr); return; }
   efectivoInicial.value = turnoData?.montoinicial ?? 0;
 
-  // 2. Resumen de caja → efectivo cobrado
   const { data: cajaData, error: cajaErr } = await supabase
     .from("corte_caja_resumen").select("total_efectivo").eq("idturno", idTurno.value);
   if (cajaErr) { console.error("Error al cargar caja", cajaErr); return; }
   efectivoCaja.value = cajaData?.[0]?.total_efectivo ?? 0;
 
-  // 3. Movimientos → retiros y depósitos
   const { data: movsData, error: movsErr } = await supabase
     .from("movimientos_resumen").select("*").eq("idturno", idTurno.value);
   if (movsErr) { console.error("Error al cargar movimientos", movsErr); return; }
   totalRetiros.value   = 0;
   totalDepositos.value = 0;
   movsData?.forEach(item => {
-    if (item.tipomovimiento === "retiro")   totalRetiros.value   = item.total;
-    if (item.tipomovimiento === "deposito") totalDepositos.value = item.total;
+    // ✅ Mayúscula igual que la BD
+    if (item.tipomovimiento === "Retiro")   totalRetiros.value   = item.total;
+    if (item.tipomovimiento === "Deposito") totalDepositos.value = item.total;
   });
 };
 
+function bloquearTeclas(event) {
+  if (["e", "E", "+", "-"].includes(event.key)) {
+    event.preventDefault();
+  }
+}
+
 // ── Registrar movimiento ─────────────────────────────────────
 const aggMovimiento = async () => {
+  const importeNum = parseFloat(importe.value);
+  if (!importe.value || isNaN(importeNum) || importeNum <= 0) {
+    mostrarAlerta("Rellena todos los campos");
+    return;
+  }
+  if (!concepto.value || concepto.value.trim() === "") {
+    mostrarAlerta("Rellena todos los campos");
+    return;
+  }
+
   const now2  = new Date();
   fecha.value = now2.toISOString().split("T")[0];
   hora.value  = now2.toTimeString().split(" ")[0];
@@ -165,20 +189,24 @@ const aggMovimiento = async () => {
     .insert([{
       idturno:        idTurno.value,
       idusuario:      userLogin.value,
-      tipomovimiento: tab.value === "retiro" ? "Retiro" : "Deposito",
-      concepto:       concepto.value,
-      cantidad:       importe.value,
+      tipomovimiento: tab.value === "retiro" ? "Retiro" : "Deposito", // ✅ Mayúscula
+      concepto:       concepto.value.trim(),
+      cantidad:       importeNum,
       fecha:          fecha.value,
       hora:           hora.value,
     }]);
 
   if (error) {
-    console.error("Error al realizar", tab.value, error); return;
+    console.error("Error al realizar", tab.value, error);
+    mostrarAlerta("Error al registrar, intenta de nuevo");
+    return;
   }
 
-  console.log(tab.value, "realizado correctamente");
+  mostrarAlerta(
+    tab.value === "retiro" ? "Retiro registrado correctamente" : "Depósito registrado correctamente",
+    "success"
+  );
   limpiarCampos();
-  // Recargar disponible tras el movimiento
   await cargarEfectivoDisponible();
 };
 
@@ -193,6 +221,28 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449; border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
 
 .modal-card {
   background: #fff;
@@ -204,7 +254,6 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* ── Tab bar ───────────────────────────────────────────────── */
 .tab-bar {
   display: flex;
   align-items: center;
@@ -234,17 +283,13 @@ onMounted(async () => {
   background: #ffe5e5;
   border-color: #e53935;
 }
-
 .tab-btn:nth-child(2).active {
   color: #2db760;
   background: #e6fff0;
   border-color: #2db760;
 }
-
-/* color activo por posición */
 .tab-btn:nth-child(1).active { color: #e53935; border-bottom-color: #e53935; }
 .tab-btn:nth-child(2).active { color: #2db760; border-bottom-color: #2db760; }
-
 .tab-btn:hover { color: #555; }
 
 .close-tab-btn {
@@ -264,7 +309,6 @@ onMounted(async () => {
 }
 .close-tab-btn:hover { background: #ffe5e5; color: #e53935; }
 
-/* ── Body ──────────────────────────────────────────────────── */
 .modal-body {
   padding: 36px;
   display: flex;
@@ -272,7 +316,6 @@ onMounted(async () => {
   gap: 20px;
 }
 
-/* Encabezado dinámico */
 .mov-header {
   display: flex;
   align-items: center;
@@ -291,17 +334,9 @@ onMounted(async () => {
 .mov-icon--retiro   { background: #ffe5e5; color: #e53935; }
 .mov-icon--deposito { background: #e6fff0; color: #2db760; }
 
-.mov-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1a1a1a;
-}
-.mov-subtitle {
-  font-size: 13px;
-  color: #999;
-}
+.mov-title    { font-size: 20px; font-weight: 700; color: #1a1a1a; }
+.mov-subtitle { font-size: 13px; color: #999; }
 
-/* Efectivo disponible */
 .efectivo-chip {
   background: #f8f8f8;
   border: 1px solid #efefef;
@@ -311,18 +346,11 @@ onMounted(async () => {
   flex-direction: column;
   gap: 4px;
 }
-
 .chip-label  { font-size: 12px; color: #888; font-weight: 500; }
 .chip-amount { font-size: 26px; font-weight: 800; color: #111; letter-spacing: -0.5px; }
 
-/* Campos */
 .field-group { display: flex; flex-direction: column; gap: 6px; }
-
-.field-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #333;
-}
+.field-label { font-size: 13px; font-weight: 600; color: #333; }
 
 .input-wrap {
   display: flex;
@@ -334,10 +362,7 @@ onMounted(async () => {
   gap: 10px;
   transition: border-color 0.2s;
 }
-.input-wrap:focus-within {
-  border-color: #3cd677;
-}
-
+.input-wrap:focus-within { border-color: #3cd677; }
 .input-icon { color: #bbb; flex-shrink: 0; }
 
 .field-input {
@@ -367,10 +392,7 @@ onMounted(async () => {
 .field-textarea:focus { border-color: #3cd677; }
 .field-textarea::placeholder { color: #ccc; }
 
-/* ── Footer ────────────────────────────────────────────────── */
-.modal-footer {
-  padding: 0 36px 32px;
-}
+.modal-footer { padding: 0 36px 32px; }
 
 .btn-confirm {
   width: 100%;
@@ -383,9 +405,8 @@ onMounted(async () => {
   transition: all 0.18s ease;
   letter-spacing: 0.01em;
 }
-
-.btn-retiro   { background: #ed6c6c; color: #fff; }
+.btn-retiro         { background: #ed6c6c; color: #fff; }
 .btn-retiro:hover   { background: #df4848; }
-.btn-deposito { background: #48e180; color: #fff; }
+.btn-deposito       { background: #48e180; color: #fff; }
 .btn-deposito:hover { background: #31b05f; }
 </style>
