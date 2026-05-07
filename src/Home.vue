@@ -14,7 +14,7 @@
           <span>Home</span>
         </div>
 
-    <div class="menu-item" :class="{ active: vistaActiva === 'pedidos' }" @click="abrirPedidos">
+    <div class="menu-item" :class="{ active: vistaActiva === 'pedidos', disabled: !turno || turno == 0 }" @click="abrirPedidos">
       <img src="/utensils.png" class="icon">
       <span>Pedidos</span>
     </div>
@@ -25,12 +25,12 @@
         </div>
 
 
-        <div class="menu-item" :class="{ active: vistaActiva === 'retiros' }" @click="setVista('retiros')">
+        <div class="menu-item" :class="{ active: vistaActiva === 'retiros', disabled: !turno || turno == 0 }" @click="abrirMovimientos">
           <img src="/arrow-up-down.png" class="icon">
           <span>Movimientos</span>
         </div>
 
-        <div class="menu-item" :class="{ active: vistaActiva === 'corte' }" @click="abrirCortee">
+        <div class="menu-item" :class="{ active: vistaActiva === 'corte', disabled: !turno || turno == 0 }" @click="abrirCortee">
           <img src="/receipt.png" class="icon">
           <span>Corte de caja</span>
         </div>
@@ -195,7 +195,15 @@ const setVista = (vista) => {
 
 const fecha = new Date();
 
-const abrirPedidos = () => setVista('pedidos');
+const abrirPedidos = () => {
+  if (!turno.value || turno.value == 0) {
+    mostrarAlertaNoTurnoAbierto.value = true;
+    setTimeout(() => { mostrarAlertaNoTurnoAbierto.value = false; }, 3000);
+    return;
+  }
+  setVista('pedidos');
+};
+
 const abrirAjustes = () => {
   if (userRol.value !== "Gerente") {
     mostrarAlertaSinPermiso.value = true;
@@ -204,7 +212,24 @@ const abrirAjustes = () => {
   }
   setVista('ajustes');
 };
-const abrirCortee = () => setVista('corte');
+
+const abrirCortee = () => {
+  if (!turno.value || turno.value == 0) {
+    mostrarAlertaNoTurnoAbierto.value = true;
+    setTimeout(() => { mostrarAlertaNoTurnoAbierto.value = false; }, 3000);
+    return;
+  }
+  setVista('corte');
+};
+
+const abrirMovimientos = () => {
+  if (!turno.value || turno.value == 0) {
+    mostrarAlertaNoTurnoAbierto.value = true;
+    setTimeout(() => { mostrarAlertaNoTurnoAbierto.value = false; }, 3000);
+    return;
+  }
+  setVista('retiros');
+};
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);
