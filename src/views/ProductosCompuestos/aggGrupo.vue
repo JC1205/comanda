@@ -1,4 +1,14 @@
 <template>
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
   <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
@@ -13,7 +23,6 @@
       <div class="modal-body">
         <div class="split-layout">
 
-          <!-- Tabla -->
           <div class="tabla-panel">
             <p class="panel-label">Grupos</p>
             <div class="tabla-wrapper">
@@ -21,20 +30,22 @@
                 <thead><tr><th>Clave</th><th>Descripción</th></tr></thead>
                 <tbody>
                   <tr
-                    v-for="grupo in grupos" :key="grupo.idgrupo"
+                    v-for="grupo in grupos"
+                    :key="grupo.idgrupo"
                     @click="seleccionarGrupo(grupo)"
                     :class="{ selected: clave === grupo.idgrupo }"
                   >
                     <td>{{ grupo.idgrupo }}</td>
                     <td>{{ grupo.nombre }}</td>
                   </tr>
-                  <tr v-if="!grupos.length"><td colspan="2" class="tabla-empty">Sin grupos</td></tr>
+                  <tr v-if="!grupos.length">
+                    <td colspan="2" class="tabla-empty">Sin grupos</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Formulario -->
           <div class="form-panel">
             <p class="panel-label">Datos del grupo</p>
             <div class="fields">
@@ -49,8 +60,8 @@
             </div>
             <div class="form-actions">
               <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-              <button class="btn-danger" @click="delGrupo">Eliminar</button>
-              <button class="btn-primary" @click="aggGrupo">Guardar</button>
+              <button class="btn-danger"    @click="delGrupo">Eliminar</button>
+              <button class="btn-primary"   @click="aggGrupo">Guardar</button>
             </div>
           </div>
 
@@ -73,40 +84,121 @@ const clave  = ref(null);
 const nombre = ref(null);
 const grupos = ref([]);
 
-const limpiarCampos = () => { clave.value = null; nombre.value = null; };
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
 
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Helpers ────────────────────────────────────────────────────
+const limpiarCampos   = () => { clave.value = null; nombre.value = null; };
+const seleccionarGrupo = (grupo) => { clave.value = grupo.idgrupo; nombre.value = grupo.nombre; };
+
+// ── Cargar grupos ──────────────────────────────────────────────
 const cargarGrupos = async () => {
   const { data, error } = await supabase.from("grupos").select();
-  if (error) { console.error("Error al consultar grupos"); return; }
+  if (error) {
+    console.error("Error al consultar grupos", error);
+    mostrarAlerta("Error al cargar grupos");
+    return;
+  }
   grupos.value = data;
 };
 
-const seleccionarGrupo = (grupo) => { clave.value = grupo.idgrupo; nombre.value = grupo.nombre; };
-
+// ── Guardar / actualizar grupo ─────────────────────────────────
 const aggGrupo = async () => {
-  await cargarGrupos();
-  const existe = grupos.value.find(u => u.idgrupo === clave.value);
-  if (existe) {
-    const { error } = await supabase.from("grupos").update({ nombre: nombre.value }).eq("idgrupo", clave.value);
-    if (error) { console.error("Error al actualizar grupo", error); return; }
-  } else {
-    const { data, error } = await supabase.from("grupos").insert([{ nombre: nombre.value }]).select();
-    if (error) { console.error("Error al agregar grupo", error); return; }
-    clave.value = data[0].idgrupo;
+  if (!nombre.value) {
+    mostrarAlerta("Ingresa el nombre del grupo");
+    return;
   }
+
+  // ✅ Usa grupos en memoria — sin select extra
+  const existe = grupos.value.find(u => u.idgrupo === clave.value);
+
+  if (existe) {
+    const { error } = await supabase
+      .from("grupos")
+      .update({ nombre: nombre.value })
+      .eq("idgrupo", clave.value);
+    if (error) {
+      console.error("Error al actualizar grupo", error);
+      mostrarAlerta("Error al actualizar el grupo");
+      return;
+    }
+    mostrarAlerta("Grupo actualizado correctamente", "success");
+  } else {
+    const { data, error } = await supabase
+      .from("grupos")
+      .insert([{ nombre: nombre.value }])
+      .select();
+    if (error) {
+      console.error("Error al agregar grupo", error);
+      mostrarAlerta("Error al agregar el grupo");
+      return;
+    }
+    clave.value = data[0].idgrupo;
+    mostrarAlerta("Grupo agregado correctamente", "success");
+  }
+
   await cargarGrupos();
 };
 
+// ── Eliminar grupo ─────────────────────────────────────────────
 const delGrupo = async () => {
-  const { error } = await supabase.from("grupos").delete().eq("idgrupo", clave.value);
-  if (error) { console.error("Error al eliminar grupo", error); return; }
-  await cargarGrupos(); limpiarCampos();
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un grupo para eliminar");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("grupos")
+    .delete()
+    .eq("idgrupo", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar grupo", error);
+    mostrarAlerta("Error al eliminar el grupo");
+    return;
+  }
+
+  mostrarAlerta("Grupo eliminado correctamente", "success");
+  limpiarCampos();
+  await cargarGrupos();
 };
 
 onMounted(() => { cargarGrupos(); });
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.35);
   display: flex; align-items: center; justify-content: center; z-index: 1100;
@@ -136,9 +228,7 @@ onMounted(() => { cargarGrupos(); });
   display: flex; align-items: center; justify-content: center; color: #888;
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { display: flex; flex: 1; overflow: hidden; 
-padding: 10px 36px 32px 32px;}
-
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 .split-layout { display: flex; flex: 1; overflow: hidden; }
 .tabla-panel {
   width: 220px; flex-shrink: 0;
@@ -201,26 +291,8 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .btn-primary:hover { background: #239e51; }
 
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
-.fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
-.fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; }
+.fade-slide-enter-from .modal-card, .fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
+.fade-slide-enter-to .modal-card, .fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

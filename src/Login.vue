@@ -123,10 +123,12 @@ const iniciarSesion = async () => {
   }
 
   if (data && data.password === password.value) {
+    
     userLogin.value = data.idusuario;
     userName.value = data.userName;
     userRol.value   = data.rol; 
     localStorage.setItem('userLogin', data.idusuario);
+    localStorage.setItem("userName",  data.userName);
     localStorage.setItem('userRol',   data.rol);
 
     obtenerTurno();

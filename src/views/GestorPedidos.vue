@@ -206,7 +206,7 @@
                 <button class="btn-accion" @click="abrirShared('descuento', 'comedor')">Descuento</button>
                 <button class="btn-accion" @click="abrirShared('captura', 'comedor')">Captura</button>
                 <button class="btn-accion" @click="abrirRenombrar">Renombrar</button>
-                <button class="btn-accion" @click="comedor.imprimirPedido()">Imprimir</button>
+                <button class="btn-accion" @click="handleImprimir('comedor')">Imprimir</button>
                 <button
                   class="btn-accion btn-accion--primary"
                   :disabled="!comedor.checkimpreso.value"
@@ -218,7 +218,7 @@
                 <button class="btn-accion" @click="abrirAggClientes">Abrir cuenta</button>
                 <button class="btn-accion" @click="abrirShared('descuento', 'domicilio')">Descuento</button>
                 <button class="btn-accion" @click="abrirShared('captura', 'domicilio')">Captura</button>
-                <button class="btn-accion" @click="domicilio.imprimirPedido()">Imprimir</button>
+                <button class="btn-accion" @click="handleImprimir('domicilio')">Imprimir</button>
                 <button
                   class="btn-accion btn-accion--primary"
                   :disabled="!domicilio.checkimpreso.value"
@@ -272,7 +272,7 @@
       <aggClientes
         :mostrar="mostrarAggClientes"
         @cerrar="mostrarAggClientes = false"
-        @actualizado="domicilio.actualizarDespuesDeEditar()"
+        @actualizado="onClienteAgregado"
       />
       <pagar
         :mostrar="mostrarPagarDom"
@@ -293,116 +293,158 @@
       />
 
     </div>
+    <!-- Modal confirmación reimpresión -->
+    <Teleport to="body">
+      <div v-if="mostrarConfirmReimprimir" class="confirm-overlay">
+        <div class="confirm-card">
+          <div class="confirm-icon">
+            <Printer :size="22" />
+          </div>
+          <p class="confirm-title">¿Reimprimir pedido?</p>
+          <p class="confirm-subtitle">Este pedido ya fue impreso anteriormente.</p>
+          <div class="confirm-actions">
+            <button class="btn-cancel-confirm" @click="mostrarConfirmReimprimir = false">Cancelar</button>
+            <button class="btn-ok-confirm" @click="confirmarReimprimir">Reimprimir</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
-import { UtensilsCrossed, Bike } from "lucide-vue-next";
+  import { ref, onMounted } from "vue"; // ✅ nextTick eliminado — ya no se necesita
 
-import { useComedor }   from "@/views/composables/useComedor.js";
-import { useDomicilio } from "@/views/composables/useDomicilio.js";
+  import { UtensilsCrossed, Bike } from "lucide-vue-next";
+  import { Printer } from "lucide-vue-next";
 
-import abrir       from "./Comedor/abrir.vue";
-import renombrar   from "./Comedor/renombrar.vue";
-import pagar       from "./Comedor/pagar.vue";
-import captura     from "./Comedor/captura.vue";
-import descuento   from "./Comedor/descuento.vue";
-import aggClientes from "./Domicilio/aggClientes.vue";
+  import { useComedor }   from "@/views/composables/useComedor.js";
+  import { useDomicilio } from "@/views/composables/useDomicilio.js";
 
-import { idPedido, idCliente } from "@/store/auth.js";
+  import abrir       from "./Comedor/abrir.vue";
+  import renombrar   from "./Comedor/renombrar.vue";
+  import pagar       from "./Comedor/pagar.vue";
+  import captura     from "./Comedor/captura.vue";
+  import descuento   from "./Comedor/descuento.vue";
+  import aggClientes from "./Domicilio/aggClientes.vue";
 
-// ── Tab ───────────────────────────────────────────────────────
-const tabActivo  = ref("comedor");
+  import { idPedido, idCliente } from "@/store/auth.js";
 
-// Al cambiar de tab sincronizamos idPedido global con el pedido
-// seleccionado en ese tab, evitando que se pisen entre composables.
-const cambiarTab = (tab) => {
-  tabActivo.value = tab;
-  if (tab === "comedor") {
+  // ── Tab ───────────────────────────────────────────────────────
+  const tabActivo = ref("comedor");
+
+  const cambiarTab = (tab) => {
+    tabActivo.value = tab;
+    // ✅ Solo sincroniza si hay pedido seleccionado en ese tab
+    if (tab === "comedor") {
+      idPedido.value = comedor.folio.value ?? null;
+    } else {
+      idPedido.value = domicilio.folio.value ?? null;
+    }
+  };
+
+  // ── Composables ───────────────────────────────────────────────
+  const comedor   = useComedor();
+  const domicilio = useDomicilio();
+
+  // ── Modales ───────────────────────────────────────────────────
+  const mostrarAbrir       = ref(false);
+  const mostrarRenombrar   = ref(false);
+  const mostrarPagar       = ref(false);
+  const mostrarAggClientes = ref(false);
+  const mostrarPagarDom    = ref(false);
+  const mostrarCaptura     = ref(false);
+  const mostrarDescuento   = ref(false);
+
+  // ── Modales compartidos ───────────────────────────────────────
+  const tabShared = ref("comedor");
+
+  const mostrarConfirmReimprimir = ref(false);
+  const tabReimprimir = ref("comedor");
+
+  const abrirShared = (modal, tab) => {
+    tabShared.value = tab;
+    idPedido.value  = tab === "comedor" ? comedor.folio.value : domicilio.folio.value;
+    if (modal === "captura")   mostrarCaptura.value   = true;
+    if (modal === "descuento") mostrarDescuento.value = true;
+  };
+
+  const onClienteAgregado = async () => {
+    await domicilio.cargarPedidosAbiertos();
+    await domicilio.jalarPedidoEspecifico(); // carga el pedido recién creado
+    mostrarCaptura.value = true;             // abre captura directo
+    tabShared.value = "domicilio";           // asegura que actualice el tab correcto
+  };
+
+  const onActualizarCaptura = () => {
+    tabShared.value === "comedor"
+      ? comedor.cargarProductosPedido()
+      : domicilio.cargarProductosPedido();
+  };
+
+  const onActualizarDescuento = () => {
+    tabShared.value === "comedor"
+      ? comedor.cargarProductosPedido()
+      : domicilio.cargarProductosPedido();
+  };
+
+  // ── Renombrar ─────────────────────────────────────────────────
+  const abrirRenombrar = () => {
     idPedido.value = comedor.folio.value;
-  } else {
+    mostrarRenombrar.value = true;
+  };
+
+  // ── Pagar comedor ─────────────────────────────────────────────
+  const abrirPagarComedor = async () => {
+    if (!comedor.checkimpreso.value) return;
+    idPedido.value = comedor.folio.value;
+    await comedor.actualizarTotalPedido(); // ✅ guarda en BD antes de abrir pagar
+    mostrarPagar.value = true;             // ✅ sin hack de +1/-1
+  };
+
+  // ── Pagar domicilio ───────────────────────────────────────────
+  const abrirPagarDomicilio = async () => {
+    if (!domicilio.checkimpreso.value) return;
     idPedido.value = domicilio.folio.value;
-  }
-};
+    await domicilio.actualizarTotalPedido(); // ✅ guarda en BD antes de abrir pagar
+    mostrarPagarDom.value = true;            // ✅ sin hack de +1/-1
+  };
 
-// ── Composables ───────────────────────────────────────────────
-const comedor   = useComedor();
-const domicilio = useDomicilio();
+  // ── Abrir cuenta domicilio ────────────────────────────────────
+  const abrirAggClientes = () => {
+    idCliente.value = null;
+    mostrarAggClientes.value = true;
+  };
 
-// ── Modales ───────────────────────────────────────────────────
-const mostrarAbrir       = ref(false);
-const mostrarRenombrar   = ref(false);
-const mostrarPagar       = ref(false);
-const mostrarAggClientes = ref(false);
-const mostrarPagarDom    = ref(false);
-const mostrarCaptura     = ref(false);
-const mostrarDescuento   = ref(false);
+  const handleImprimir = (tab) => {
+    tabReimprimir.value = tab;
+    const impreso = tab === "comedor" 
+      ? comedor.checkimpreso.value 
+      : domicilio.checkimpreso.value;
 
-// ── Modales compartidos (captura y descuento) ─────────────────
-// Siempre sincroniza idPedido antes de abrir
-const tabShared = ref("comedor"); // recuerda para qué tab se abrió
+    if (impreso) {
+      mostrarConfirmReimprimir.value = true;
+    } else {
+      ejecutarImpresion(tab);
+    }
+  };
 
-const abrirShared = (modal, tab) => {
-  tabShared.value = tab;
-  idPedido.value  = tab === "comedor" ? comedor.folio.value : domicilio.folio.value;
-  if (modal === "captura")   mostrarCaptura.value   = true;
-  if (modal === "descuento") mostrarDescuento.value = true;
-};
+  const confirmarReimprimir = () => {
+    mostrarConfirmReimprimir.value = false;
+    ejecutarImpresion(tabReimprimir.value);
+  };
 
-const onActualizarCaptura = () => {
-  tabShared.value === "comedor"
-    ? comedor.cargarProductosPedido()
-    : domicilio.cargarProductosPedido();
-};
+  const ejecutarImpresion = (tab) => {
+    tab === "comedor"
+      ? comedor.imprimirPedido()
+      : domicilio.imprimirPedido();
+  };
 
-const onActualizarDescuento = () => {
-  tabShared.value === "comedor"
-    ? comedor.cargarProductosPedido()
-    : domicilio.cargarProductosPedido();
-};
-
-// ── Renombrar ─────────────────────────────────────────────────
-const abrirRenombrar = () => {
-  idPedido.value = comedor.folio.value;
-  mostrarRenombrar.value = true;
-};
-
-// ── Pagar comedor ─────────────────────────────────────────────
-const abrirPagarComedor = async () => {
-  if (!comedor.checkimpreso.value) return;
-  idPedido.value = comedor.folio.value;
-  await comedor.actualizarTotalPedido();
-  mostrarPagar.value = false;
-  await nextTick();
-  idPedido.value = idPedido.value + 1;
-  idPedido.value = idPedido.value - 1;
-  mostrarPagar.value = true;
-};
-
-// ── Pagar domicilio ───────────────────────────────────────────
-const abrirPagarDomicilio = async () => {
-  if (!domicilio.checkimpreso.value) return;
-  idPedido.value = domicilio.folio.value;
-  await domicilio.actualizarTotalPedido();
-  mostrarPagarDom.value = false;
-  await nextTick();
-  idPedido.value = idPedido.value + 1;
-  idPedido.value = idPedido.value - 1;
-  mostrarPagarDom.value = true;
-};
-
-// ── Abrir cuenta domicilio ────────────────────────────────────
-const abrirAggClientes = () => {
-  idCliente.value = null;
-  mostrarAggClientes.value = true;
-};
-
-// ── Carga inicial ─────────────────────────────────────────────
-onMounted(() => {
-  comedor.cargarPedidosAbiertos();
-  domicilio.cargarPedidosAbiertos();
-});
+  // ── Carga inicial ─────────────────────────────────────────────
+  onMounted(() => {
+    comedor.cargarPedidosAbiertos();
+    domicilio.cargarPedidosAbiertos();
+  });
 </script>
 
 <style scoped>
@@ -642,4 +684,62 @@ onMounted(() => {
 }
 .total-row--final span   { color: #111; font-weight: 700; }
 .total-row--final strong { color: #2db760; font-size: 14px; }
+
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+}
+
+.confirm-card {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.14);
+  padding: 32px 36px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.confirm-icon {
+  width: 52px; height: 52px;
+  border-radius: 14px;
+  background: #fff8e1;
+  color: #e08c00;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.confirm-title {
+  font-size: 16px; font-weight: 700;
+  color: #111; margin: 0;
+}
+
+.confirm-subtitle {
+  font-size: 13px; color: #999; margin: 0;
+}
+
+.confirm-actions {
+  display: flex; gap: 10px;
+  width: 100%; margin-top: 8px;
+}
+
+.btn-cancel-confirm {
+  flex: 1; height: 42px;
+  border: 1.5px solid #e5e5e5; border-radius: 10px;
+  background: #fff; font-size: 14px; font-weight: 600;
+  color: #555; cursor: pointer; transition: all 0.15s;
+}
+.btn-cancel-confirm:hover { background: #f5f5f5; }
+
+.btn-ok-confirm {
+  flex: 1; height: 42px;
+  border: none; border-radius: 10px;
+  background: #e08c00; font-size: 14px; font-weight: 600;
+  color: #fff; cursor: pointer; transition: all 0.15s;
+}
+.btn-ok-confirm:hover { background: #c47a00; }
 </style>

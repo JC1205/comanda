@@ -187,6 +187,24 @@ const confirmarCierre = async () => {
     return;
   }
 
+    const { data: notasAbiertas, error: errorNotas } = await supabase
+      .from("pedidos")
+      .select("idpedido")
+      .eq("idturno", idTurno.value)
+      .eq("abierto", true)
+      .eq("eliminado", false);
+
+    if (errorNotas) {
+      console.error("Error al verificar notas abiertas", errorNotas);
+      mostrarAlerta("Error al verificar notas pendientes");
+      return;
+    }
+
+    if (notasAbiertas.length > 0) {
+      mostrarAlerta(`Hay ${notasAbiertas.length} nota(s) sin cerrar`);
+      return;
+    }
+
   const horaIso = new Date().toISOString().split("T")[1].split(".")[0];
 
   const { error } = await supabase

@@ -35,7 +35,11 @@
           <span>Corte de caja</span>
         </div>
 
-        <div class="menu-item" :class="{ active: vistaActiva === 'ajustes' }" @click="abrirAjustes">
+        <div
+        class="menu-item"
+        :class="{ active: vistaActiva === 'ajustes', disabled: userRol !== 'Gerente' }"
+        @click="abrirAjustes"
+      >
         <img src="/settings.png" class="icon">
         <span>Ajustes</span>
       </div>
@@ -140,6 +144,12 @@
       </div>
     </transition>
 
+    <transition name="fade-slide">
+      <div v-if="mostrarAlertaSinPermiso" class="alert error">
+        Sin permisos para acceder a Ajustes.
+      </div>
+    </transition>
+
     <!-- MODALES FLOTANTES (NO TOCAR) -->
     <aggProductos :mostrar="mostrarAggProductos" @cerrar="mostrarAggProductos = false" />
     <aggUsuarios  :mostrar="mostrarAggUsuarios"  @cerrar="mostrarAggUsuarios = false" />
@@ -159,7 +169,7 @@ import GestorTurno from "@/views/GestorTurno.vue";
 import impresoras from "./views/impresoras.vue";
 import corte from "./views/corte.vue";
 import Retiros from "./views/retiros.vue";
-import { turno, userName } from "@/store/auth.js";
+import { turno, userName, userRol, userLogin } from "@/store/auth.js";
 import { CircleX } from 'lucide-vue-next';
 import GestorPedidos  from "@/views/GestorPedidos.vue";
 import GestorAjustes from "@/views/GestorAjustes.vue";
@@ -186,14 +196,22 @@ const setVista = (vista) => {
 const fecha = new Date();
 
 const abrirPedidos = () => setVista('pedidos');
-const abrirAjustes = () => setVista('ajustes');
+const abrirAjustes = () => {
+  if (userRol.value !== "Gerente") {
+    mostrarAlertaSinPermiso.value = true;
+    setTimeout(() => { mostrarAlertaSinPermiso.value = false; }, 3000);
+    return;
+  }
+  setVista('ajustes');
+};
 const abrirCortee = () => setVista('corte');
 
 // ── Alertas ────────────────────────────────────────────────────
 const mostrarAlertaTurnoAbierto    = ref(false);
 const mostrarAlertaTurnoCreado     = ref(false);
 const mostrarAlertaNoTurnoAbierto  = ref(false);
-const alertaTurnoCerrado           = ref(false);
+const alertaTurnoCerrado = ref(false);
+const mostrarAlertaSinPermiso = ref(false);
 
 const mostrarAlertaTurno = () => {
   mostrarAlertaTurnoCreado.value = true;
@@ -235,11 +253,23 @@ function handleClickOutside(event) {
   }
 }
 
-onMounted(() => { window.addEventListener('click', handleClickOutside); console.log("Nombre de usuario:", userName.value); });
+onMounted(() => {
+  window.addEventListener('click', handleClickOutside);
+  console.log("userName:", userName.value);
+  console.log("userRol:", userRol.value);
+  console.log("localStorage userName:", localStorage.getItem("userName"));
+});
 onBeforeUnmount(() => { window.removeEventListener('click', handleClickOutside); });
 
 const router = useRouter();
-const salir = () => { router.push("/"); };
+const salir = () => {
+  localStorage.removeItem("userLogin");
+  localStorage.removeItem("userName");
+  localStorage.removeItem("userRol");
+  localStorage.removeItem("turno");
+  localStorage.removeItem("idTurno");
+  router.push("/");
+};
 </script>
 
 <style scoped>
@@ -506,5 +536,14 @@ const salir = () => { router.push("/"); };
 .panel-fade-leave-to {
   opacity: 0;
   transform: translateY(16px);
+}
+
+.menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.menu-item.disabled:hover {
+  background: transparent;
+  transform: none;
 }
 </style>

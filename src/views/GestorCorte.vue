@@ -2,7 +2,6 @@
   <div v-if="mostrar" class="gestor-wrapper">
     <div class="corte-card">
 
-      <!-- ── HEADER ─────────────────────────────────────────── -->
       <div class="card-header">
         <div class="header-left">
           <div class="icon-wrap">
@@ -21,10 +20,8 @@
 
       <div class="divider" />
 
-      <!-- ── BODY ───────────────────────────────────────────── -->
       <div class="card-body">
 
-        <!-- Columna 1: Movimientos -->
         <div class="col-section">
           <p class="section-label">Movimientos</p>
           <div class="metrics-list">
@@ -57,7 +54,6 @@
 
         <div class="col-divider" />
 
-        <!-- Columna 2: Resumen ventas -->
         <div class="col-section">
           <p class="section-label">Resumen de ventas</p>
           <div class="metrics-list">
@@ -83,7 +79,6 @@
 
         <div class="col-divider" />
 
-        <!-- Columna 3: Saldos finales -->
         <div class="col-section">
           <p class="section-label">Saldos finales</p>
           <div class="final-chips">
@@ -104,7 +99,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, defineProps } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { Calculator } from "lucide-vue-next";
 import { supabase } from "@/supabase/supabase";
 import { idTurno } from "@/store/auth.js";
@@ -113,34 +108,34 @@ const props = defineProps(["mostrar"]);
 
 const fmt = (val) => val != null ? Number(val).toFixed(2) : '0.00';
 
-const comandas        = ref(null);
-const efectivoInical  = ref(null);
-const efectivo        = ref(null);
-const tarjeta         = ref(null);
-const transferencia   = ref(null);
-const retiros         = ref(null);
-const depositos       = ref(null);
-const saldoFinal      = ref(null);
-const efectivoFinal   = ref(null);
-const efectivo2       = ref(null);
-const tarjeta2        = ref(null);
-const transferencia2  = ref(null);
-const ventaBruta      = ref(null);
+const comandas       = ref(null);
+const efectivoInical = ref(null);
+const efectivo       = ref(null);
+const tarjeta        = ref(null);
+const transferencia  = ref(null);
+const retiros        = ref(null);
+const depositos      = ref(null);
+const saldoFinal     = ref(null);
+const efectivoFinal  = ref(null);
+const efectivo2      = ref(null);
+const tarjeta2       = ref(null);
+const transferencia2 = ref(null);
+const ventaBruta     = ref(null);
 
 const resumenCaja        = ref({ efectivo: 0, tarjeta: 0, transferencia: 0, ventaBruta: 0 });
 const resumenMovimientos = ref({ retiro: 0, deposito: 0 });
-const turno              = ref([]);
+const turno              = ref(null);
 
 const cargarResumenCaja = async () => {
   const { data, error } = await supabase
     .from('corte_caja_resumen').select('*').eq('idturno', idTurno.value);
   if (error) { console.error("❌ Error al cargar resumen de caja:", error); return; }
-  if (data.length > 0) {
+  if (data?.length > 0) {
     resumenCaja.value = {
-      efectivo:      data[0].total_efectivo,
-      tarjeta:       data[0].total_tarjeta,
-      transferencia: data[0].total_transferencia,
-      ventaBruta:    data[0].venta_bruta,
+      efectivo:      data[0].total_efectivo  ?? 0,
+      tarjeta:       data[0].total_tarjeta   ?? 0,
+      transferencia: data[0].total_transfer  ?? 0, // ✅ nombre correcto de la vista
+      ventaBruta:    data[0].total_general   ?? 0, // ✅ nombre correcto de la vista
     };
   }
 };
@@ -149,34 +144,53 @@ const cargarResumenMovimientos = async () => {
   const { data, error } = await supabase
     .from('movimientos_resumen').select('*').eq('idturno', idTurno.value);
   if (error) { console.error("❌ Error al cargar movimientos:", error); return; }
-  data.forEach(item => {
-    if (item.tipomovimiento === 'retiro')   resumenMovimientos.value.retiro   = item.total;
-    if (item.tipomovimiento === 'deposito') resumenMovimientos.value.deposito = item.total;
+  resumenMovimientos.value = { retiro: 0, deposito: 0 }; // reset antes de llenar
+  data?.forEach(item => {
+    // ✅ Mayúscula igual que en BD
+    if (item.tipomovimiento === 'Retiro')   resumenMovimientos.value.retiro   = item.total ?? 0;
+    if (item.tipomovimiento === 'Deposito') resumenMovimientos.value.deposito = item.total ?? 0;
   });
 };
 
-async function obtenerTurno() {
+const obtenerTurno = async () => {
   const { data, error } = await supabase
     .from('turnos').select().eq('idturno', idTurno.value);
   if (error) { console.error("Error al obtener turno", error); return; }
-  turno.value = data[0];
-}
+  turno.value = data?.[0] ?? null;
+};
 
-function cargarDatos() {
+const cargarDatos = () => {
+  // ✅ Guard — no continúa si el turno no cargó
+  if (!turno.value) {
+    console.error("No se pudo cargar el turno");
+    return;
+  }
+
+  const ei  = turno.value.montoinicial              ?? 0;
+  const ef  = resumenCaja.value.efectivo            ?? 0;
+  const tj  = resumenCaja.value.tarjeta             ?? 0;
+  const tr  = resumenCaja.value.transferencia       ?? 0;
+  const ret = resumenMovimientos.value.retiro       ?? 0;
+  const dep = resumenMovimientos.value.deposito     ?? 0;
+
   comandas.value       = turno.value.totalNotas;
-  efectivoInical.value = turno.value.montoinicial;
-  efectivo.value       = resumenCaja.value.efectivo;
-  tarjeta.value        = resumenCaja.value.tarjeta;
-  transferencia.value  = resumenCaja.value.transferencia;
-  retiros.value        = resumenMovimientos.value.retiro;
-  depositos.value      = resumenMovimientos.value.deposito;
-  saldoFinal.value     = efectivoInical.value + efectivo.value + tarjeta.value + transferencia.value - retiros.value + depositos.value;
-  efectivoFinal.value  = efectivoInical.value + efectivo.value - retiros.value + depositos.value;
-  efectivo2.value      = efectivo.value;
-  tarjeta2.value       = tarjeta.value;
-  transferencia2.value = transferencia.value;
+  efectivoInical.value = ei;
+  efectivo.value       = ef;
+  tarjeta.value        = tj;
+  transferencia.value  = tr;
+  retiros.value        = ret;
+  depositos.value      = dep;
+
+  // ✅ Saldo final = todo el dinero que debería haber en caja
+  saldoFinal.value     = ei + ef + tj + tr - ret + dep;
+  // ✅ Efectivo final = solo el efectivo físico en caja
+  efectivoFinal.value  = ei + ef - ret + dep;
+
+  efectivo2.value      = ef;
+  tarjeta2.value       = tj;
+  transferencia2.value = tr;
   ventaBruta.value     = resumenCaja.value.ventaBruta;
-}
+};
 
 const cargarTodo = async () => {
   await obtenerTurno();
@@ -191,26 +205,18 @@ onMounted(() => { if (props.mostrar) cargarTodo(); });
 
 <style scoped>
 .gestor-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  box-sizing: border-box;
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; box-sizing: border-box;
 }
 
 .corte-card {
-  background: #fff;
-  border-radius: 16px;
+  background: #fff; border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-  width: 100%;
-  max-width: 860px;
-  display: flex;
-  flex-direction: column;
+  width: 100%; max-width: 860px;
+  display: flex; flex-direction: column;
 }
 
-/* ── Header ────────────────────────────────────────────────── */
 .card-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px; flex-shrink: 0;
@@ -241,12 +247,7 @@ onMounted(() => { if (props.mostrar) cargarTodo(); });
 
 .divider { height: 1px; background: #f0f0f0; flex-shrink: 0; }
 
-/* ── Body ──────────────────────────────────────────────────── */
-.card-body {
-  display: flex;
-  padding: 14px 18px;
-  gap: 0;
-}
+.card-body { display: flex; padding: 14px 18px; gap: 0; }
 
 .col-section {
   flex: 1; display: flex; flex-direction: column;
@@ -263,7 +264,6 @@ onMounted(() => { if (props.mostrar) cargarTodo(); });
   color: #ccc; margin: 0 0 2px;
 }
 
-/* ── Metric rows ───────────────────────────────────────────── */
 .metrics-list { display: flex; flex-direction: column; gap: 4px; }
 
 .metric-row {
@@ -278,7 +278,6 @@ onMounted(() => { if (props.mostrar) cargarTodo(); });
 .metric-row--negative .metric-val { color: #e53935; }
 .metric-row--positive .metric-val { color: #2db760; }
 
-/* ── Venta bruta ───────────────────────────────────────────── */
 .venta-bruta-chip {
   display: flex; align-items: center; justify-content: space-between;
   background: #f0fdf5; border: 1.5px solid #d1fae5;
@@ -292,7 +291,6 @@ onMounted(() => { if (props.mostrar) cargarTodo(); });
 }
 .vb-value { font-size: 18px; font-weight: 800; color: #111; }
 
-/* ── Saldos finales ────────────────────────────────────────── */
 .final-chips { display: flex; flex-direction: column; gap: 6px; }
 
 .final-chip {

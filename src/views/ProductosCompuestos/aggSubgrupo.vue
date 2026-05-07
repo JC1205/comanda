@@ -1,5 +1,15 @@
 <template>
-    <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -13,7 +23,6 @@
       <div class="modal-body">
         <div class="split-layout">
 
-          <!-- Tabla -->
           <div class="tabla-panel">
             <p class="panel-label">Subgrupos</p>
             <div class="tabla-wrapper">
@@ -21,7 +30,8 @@
                 <thead><tr><th>Clave</th><th>Descripción</th><th>Grupo</th></tr></thead>
                 <tbody>
                   <tr
-                    v-for="sub in subGrupos" :key="sub.idsubgrupo"
+                    v-for="sub in subGrupos"
+                    :key="sub.idsubgrupo"
                     @click="seleccionarSubGrupo(sub)"
                     :class="{ selected: clave === sub.idsubgrupo }"
                   >
@@ -29,13 +39,14 @@
                     <td>{{ sub.nombre }}</td>
                     <td>{{ obtenerNombreGrupo(sub.idgrupo) }}</td>
                   </tr>
-                  <tr v-if="!subGrupos.length"><td colspan="3" class="tabla-empty">Sin subgrupos</td></tr>
+                  <tr v-if="!subGrupos.length">
+                    <td colspan="3" class="tabla-empty">Sin subgrupos</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Formulario -->
           <div class="form-panel">
             <p class="panel-label">Datos del subgrupo</p>
             <div class="fields">
@@ -56,8 +67,8 @@
             </div>
             <div class="form-actions">
               <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-              <button class="btn-danger" @click="delSubGrupo">Eliminar</button>
-              <button class="btn-primary" @click="aggSubGrupo">Guardar</button>
+              <button class="btn-danger"    @click="delSubGrupo">Eliminar</button>
+              <button class="btn-primary"   @click="aggSubGrupo">Guardar</button>
             </div>
           </div>
 
@@ -82,18 +93,23 @@ const tipo      = ref(null);
 const subGrupos = ref([]);
 const grupos    = ref([]);
 
-const limpiarCampos = () => { clave.value = null; nombre.value = null; tipo.value = null; };
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
 
-const cargarSubGrupos = async () => {
-  const { data, error } = await supabase.from("subgrupos").select();
-  if (error) { console.error("Error al cargar subgrupos", error); return; }
-  subGrupos.value = data;
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
 };
 
-const cargarGrupos = async () => {
-  const { data, error } = await supabase.from("grupos").select();
-  if (error) { console.error("Error al cargar grupos", error); return; }
-  grupos.value = data;
+// ── Helpers ────────────────────────────────────────────────────
+const limpiarCampos = () => {
+  clave.value  = null;
+  nombre.value = null;
+  tipo.value   = null;
 };
 
 const obtenerNombreGrupo = (idgrupo) => {
@@ -107,33 +123,124 @@ const seleccionarSubGrupo = (sub) => {
   tipo.value   = obtenerNombreGrupo(sub.idgrupo);
 };
 
-const aggSubGrupo = async () => {
-  await cargarSubGrupos(); await cargarGrupos();
-  const existe = subGrupos.value.find(u => u.idsubgrupo === clave.value);
-  const grupo  = grupos.value.find(u => u.nombre === tipo.value);
-  if (existe) {
-    const { error } = await supabase.from("subgrupos")
-      .update({ nombre: nombre.value, idgrupo: grupo.idgrupo }).eq("idsubgrupo", clave.value);
-    if (error) { console.error("Error al actualizar subgrupo", error); return; }
-  } else {
-    const { data, error } = await supabase.from("subgrupos")
-      .insert([{ nombre: nombre.value, idgrupo: grupo.idgrupo }]).select();
-    if (error) { console.error("Error al agregar subgrupo", error); return; }
-    clave.value = data[0].idsubgrupo;
+// ── Cargar datos ───────────────────────────────────────────────
+const cargarSubGrupos = async () => {
+  const { data, error } = await supabase.from("subgrupos").select();
+  if (error) {
+    console.error("Error al cargar subgrupos", error);
+    mostrarAlerta("Error al cargar subgrupos");
+    return;
   }
+  subGrupos.value = data;
+};
+
+const cargarGrupos = async () => {
+  const { data, error } = await supabase.from("grupos").select();
+  if (error) {
+    console.error("Error al cargar grupos", error);
+    mostrarAlerta("Error al cargar grupos");
+    return;
+  }
+  grupos.value = data;
+};
+
+// ── Guardar / actualizar subgrupo ──────────────────────────────
+const aggSubGrupo = async () => {
+  if (!nombre.value || !tipo.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
+  }
+
+  // ✅ Usa memoria — sin selects extra
+  const grupo = grupos.value.find(u => u.nombre === tipo.value);
+  if (!grupo) {
+    mostrarAlerta("Grupo no encontrado");
+    return;
+  }
+
+  const existe = subGrupos.value.find(u => u.idsubgrupo === clave.value);
+
+  if (existe) {
+    const { error } = await supabase
+      .from("subgrupos")
+      .update({ nombre: nombre.value, idgrupo: grupo.idgrupo })
+      .eq("idsubgrupo", clave.value);
+    if (error) {
+      console.error("Error al actualizar subgrupo", error);
+      mostrarAlerta("Error al actualizar el subgrupo");
+      return;
+    }
+    mostrarAlerta("Subgrupo actualizado correctamente", "success");
+  } else {
+    const { data, error } = await supabase
+      .from("subgrupos")
+      .insert([{ nombre: nombre.value, idgrupo: grupo.idgrupo }])
+      .select();
+    if (error) {
+      console.error("Error al agregar subgrupo", error);
+      mostrarAlerta("Error al agregar el subgrupo");
+      return;
+    }
+    clave.value = data[0].idsubgrupo;
+    mostrarAlerta("Subgrupo agregado correctamente", "success");
+  }
+
   await cargarSubGrupos();
 };
 
+// ── Eliminar subgrupo ──────────────────────────────────────────
 const delSubGrupo = async () => {
-  const { error } = await supabase.from("subgrupos").delete().eq("idsubgrupo", clave.value);
-  if (error) { console.error("Error al eliminar subgrupo", error); return; }
-  await cargarSubGrupos(); limpiarCampos();
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un subgrupo para eliminar");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("subgrupos")
+    .delete()
+    .eq("idsubgrupo", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar subgrupo", error);
+    mostrarAlerta("Error al eliminar el subgrupo");
+    return;
+  }
+
+  mostrarAlerta("Subgrupo eliminado correctamente", "success");
+  limpiarCampos();
+  await cargarSubGrupos();
 };
 
-onMounted(() => { cargarGrupos(); cargarSubGrupos(); });
+onMounted(() => {
+  cargarGrupos();
+  cargarSubGrupos();
+});
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.35);
   display: flex; align-items: center; justify-content: center; z-index: 1100;
@@ -163,7 +270,7 @@ onMounted(() => { cargarGrupos(); cargarSubGrupos(); });
   display: flex; align-items: center; justify-content: center; color: #888;
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px;}
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 .split-layout { display: flex; flex: 1; overflow: hidden; }
 .tabla-panel {
   width: 260px; flex-shrink: 0;
@@ -221,26 +328,8 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .btn-primary:hover { background: #0369a1; }
 
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
-.fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
-.fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; }
+.fade-slide-enter-from .modal-card, .fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
+.fade-slide-enter-to .modal-card, .fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

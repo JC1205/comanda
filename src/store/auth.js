@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { supabase } from "@/supabase/supabase";
 
 // Variable global para el usuario logueado
-export const userLogin = ref(localStorage.getItem("userLogin") || 0);
+export const userLogin = ref(localStorage.getItem("userLogin") || null);
 export const userName = ref(localStorage.getItem("userName") || "");
 export const userRol = ref(localStorage.getItem("userRol") || "");
 export const turno = ref(localStorage.getItem("turno") || 0);
@@ -71,21 +71,30 @@ export const cargarGruposModif = async () => {
 
 
 export const obtenerTurno = async () => {
-    const { data: turnoAbierto, error } = await supabase
-      .from("turnos")
-      .select()
-      .is("horacierre", null);
-  
-    if (error) {
-      console.error("Error al obtener turno abierto:", error);
-      return;
-    }
-  
-    if (turnoAbierto?.length > 0) {
-      idTurno.value = turnoAbierto[0].idturno; // Asegúrate de usar el nombre correcto
-      turno.value = true;
-      numPedidos.value = turnoAbierto[0].totalNotas;
-      console.log(numPedidos.value);
-      
-    } 
-  };
+  const { data: turnoAbierto, error } = await supabase
+    .from("turnos")
+    .select()
+    .is("horacierre", null);
+
+  if (error) {
+    console.error("Error al obtener turno abierto:", error);
+    return;
+  }
+
+  if (turnoAbierto?.length > 0) {
+    idTurno.value      = turnoAbierto[0].idturno;
+    turno.value        = true;
+    numPedidos.value   = turnoAbierto[0].totalNotas;
+
+    // ✅ Persistir en localStorage para que sobreviva recargas
+    localStorage.setItem("idTurno", turnoAbierto[0].idturno);
+    localStorage.setItem("turno",   "true");
+  } else {
+    // ✅ Si no hay turno, limpiar
+    idTurno.value    = 0;
+    turno.value      = 0;
+    numPedidos.value = null;
+    localStorage.removeItem("idTurno");
+    localStorage.removeItem("turno");
+  }
+};

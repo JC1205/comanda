@@ -17,10 +17,10 @@ export function useDomicilio() {
   const total             = ref(null);
   const direccionCompleta = ref(null);
 
-  const pedidosAbiertos   = ref([]);
-  const productosPedido   = ref([]);
-  const productosExterno  = ref([]);
-  const pedidoExterno     = ref([]);
+  const pedidosAbiertos  = ref([]);
+  const productosPedido  = ref([]);
+  const productosExterno = ref([]);
+  const pedidoExterno    = ref({});
 
   // ── Cargar lista de pedidos ──────────────────────────────────
   const cargarPedidosAbiertos = async () => {
@@ -28,7 +28,6 @@ export function useDomicilio() {
       .from("pedidos_domicilio_con_direccion")
       .select("*")
       .eq("abierto", true);
-
     if (error) { console.error("❌ Error al obtener pedidos de domicilio:", error); return; }
     pedidosAbiertos.value = data;
   };
@@ -41,79 +40,69 @@ export function useDomicilio() {
     horaApertura.value = pedido.horaapertura;
     horaImpresa.value  = pedido.horaimpresion || "---";
     checkimpreso.value = pedido.impreso;
+    idCliente.value    = pedido.idcliente;
+    idPedido.value     = pedido.idpedido;
 
     direccionCompleta.value = [
-      pedido.calle              ? pedido.calle                                          : "",
-      pedido.numcasa            ? `#${pedido.numcasa}`                                  : "",
-      pedido.colonia            ? pedido.colonia                                        : "",
-      pedido.interseccion1 || pedido.interseccion2
-        ? `Entre ${pedido.interseccion1 || ""} y ${pedido.interseccion2 || ""}`         : "",
-      pedido.referencias        ? `Ref: ${pedido.referencias}`                          : "",
-    ]
-      .filter(Boolean)
-      .join(", ");
+      pedido.calle     ? pedido.calle              : "",
+      pedido.numcasa   ? `#${pedido.numcasa}`      : "",
+      pedido.colonia   ? pedido.colonia            : "",
+      (pedido.interseccion1 || pedido.interseccion2)
+        ? `Entre ${pedido.interseccion1 || ""} y ${pedido.interseccion2 || ""}` : "",
+      pedido.referencias ? `Ref: ${pedido.referencias}` : "",
+    ].filter(Boolean).join(", ");
 
-    idCliente.value = pedido.idcliente;
     cargarProductosPedido();
   };
 
   // ── Recargar el pedido activo desde BD ──────────────────────
   const jalarPedidoEspecifico = async () => {
+    if (!idPedido.value) return; // ✅ guard
     const { data, error } = await supabase
       .from("pedidos_domicilio_con_direccion")
       .select("*")
       .eq("idpedido", idPedido.value);
-
     if (error) { console.error("Error al obtener pedido", error); return; }
-    obtenerPedido(data[0]);
+    if (data?.[0]) obtenerPedido(data[0]);
   };
 
   // ── Cargar productos del pedido activo ──────────────────────
   const cargarProductosPedido = async () => {
+    if (!idPedido.value) return; // ✅ guard
+
     const { data: productos, error: errorProductos } = await supabase
       .from("productos_pedidos")
       .select(`
-        idprodpedi,
-        idproducto,
-        cantidad,
-        productos (
-          nombre,
-          precio,
-          preciosinimporte
-        )
+        idprodpedi, idproducto, cantidad,
+        productos ( nombre, precio, preciosinimporte )
       `)
       .eq("idpedido", idPedido.value);
 
     if (errorProductos) { console.error("Error al obtener productos", errorProductos); return; }
 
-    const idsProds = productos.map((p) => p.idprodpedi);
+    // ✅ Guard para lista vacía
+    let modificadoresPorProducto = {};
+    if (productos.length > 0) {
+      const idsProds = productos.map(p => p.idprodpedi);
+      const { data: mods, error: errorMods } = await supabase
+        .from("productos_pedidos_modificadores")
+        .select(`idprodpedi, modificadores ( idmodificador, nombre, precio )`)
+        .in("idprodpedi", idsProds);
 
-    const { data: mods, error: errorMods } = await supabase
-      .from("productos_pedidos_modificadores")
-      .select(`
-        idprodpedi,
-        modificadores (
-          idmodificador,
-          nombre,
-          precio
-        )
-      `)
-      .in("idprodpedi", idsProds);
+      if (errorMods) { console.error("Error al obtener modificadores", errorMods); return; }
 
-    if (errorMods) { console.error("Error al obtener modificadores", errorMods); return; }
-
-    const modificadoresPorProducto = {};
-    mods.forEach((m) => {
-      if (!m.modificadores) return;
-      if (!modificadoresPorProducto[m.idprodpedi]) modificadoresPorProducto[m.idprodpedi] = [];
-      modificadoresPorProducto[m.idprodpedi].push({
-        idmodificador: m.modificadores.idmodificador,
-        nombre:        m.modificadores.nombre,
-        precio:        m.modificadores.precio,
+      mods.forEach(m => {
+        if (!m.modificadores) return;
+        if (!modificadoresPorProducto[m.idprodpedi]) modificadoresPorProducto[m.idprodpedi] = [];
+        modificadoresPorProducto[m.idprodpedi].push({
+          idmodificador: m.modificadores.idmodificador,
+          nombre:        m.modificadores.nombre,
+          precio:        m.modificadores.precio,
+        });
       });
-    });
+    }
 
-    const productosConModificadores = productos.map((p) => ({
+    const productosConModificadores = productos.map(p => ({
       id:            p.idproducto,
       cantidad:      p.cantidad ?? 1,
       descripcion:   p.productos?.nombre || "Sin nombre",
@@ -125,32 +114,33 @@ export function useDomicilio() {
     productosExterno.value = productosConModificadores;
 
     await cargarpedido();
-    calcularTotales(productosConModificadores, pedidoExterno.value.descuento);
+    // ✅ Solo calcula — no actualiza BD al cargar
+    calcularTotalesSinGuardar(productosConModificadores, pedidoExterno.value?.descuento ?? 0);
   };
 
   // ── Cargar fila del pedido activo ───────────────────────────
   const cargarpedido = async () => {
+    if (!idPedido.value) return;
     const { data, error } = await supabase
       .from("pedidos")
       .select()
       .eq("idpedido", idPedido.value);
-
     if (error) { console.error("Error obtener pedido", error); return; }
-    pedidoExterno.value = data[0];
+    pedidoExterno.value = data[0] ?? {};
   };
 
   // ── Actualizar total en BD ──────────────────────────────────
   const actualizarTotalEnBD = async (montoFinal) => {
+    if (!idPedido.value) return;
     const { error } = await supabase
       .from("pedidos")
       .update({ totalPedido: montoFinal })
       .eq("idpedido", idPedido.value);
-
-    if (error) console.error("Error al actualizar total en la base de datos", error);
+    if (error) console.error("Error al actualizar total en BD", error);
   };
 
-  // ── Calcular totales ────────────────────────────────────────
-  const calcularTotales = (productos = [], descuentoPorcentaje = 0) => {
+  // ── Calcular totales SIN guardar en BD ──────────────────────
+  const calcularTotalesSinGuardar = (productos = [], descuentoPorcentaje = 0) => {
     const totalBruto = productos.reduce((acc, item) => {
       const modTotal = item.modificadores?.reduce((s, mod) => s + Number(mod.precio || 0), 0) || 0;
       return acc + (Number(item.precio || 0) + modTotal) * Number(item.cantidad || 1);
@@ -166,11 +156,13 @@ export function useDomicilio() {
     impuestos.value    = `$${impuestosCalculados.toFixed(2)}`;
     totalsindesc.value = `$${totalBruto.toFixed(2)}`;
     total.value        = `$${totalFinal.toFixed(2)}`;
-
-    actualizarTotalEnBD(totalFinal.toFixed(2));
   };
 
-  // ── Actualizar total antes de pagar ────────────────────────
+  const calcularTotales = (productos = [], descuentoPorcentaje = 0) => {
+    calcularTotalesSinGuardar(productos, descuentoPorcentaje);
+  };
+
+  // ── Actualizar total antes de pagar ─────────────────────────
   const actualizarTotalPedido = async () => {
     const productos           = productosPedido.value;
     const descuentoPorcentaje = parseFloat(pedidoExterno.value?.descuento || 0);
@@ -183,24 +175,26 @@ export function useDomicilio() {
     const descuentoCalculado = totalBruto * (descuentoPorcentaje / 100);
     const totalFinal         = totalBruto - descuentoCalculado;
 
-    const { error } = await supabase
-      .from("pedidos")
-      .update({ totalPedido: totalFinal.toFixed(2) })
-      .eq("idpedido", idPedido.value);
-
-    if (error) console.error("❌ Error al actualizar total antes de pagar:", error);
+    await actualizarTotalEnBD(totalFinal.toFixed(2));
   };
 
   // ── Marcar como impreso ─────────────────────────────────────
   const imprimirPedido = async () => {
+    if (!idPedido.value) return;
+
+    const horaActual = new Date().toTimeString().split(" ")[0]; // ✅ hora actual
+
     const { error } = await supabase
       .from("pedidos")
-      .update({ impreso: true })
+      .update({
+        impreso:        true,
+        horaimpresion:  horaActual, // ✅ guarda la hora
+      })
       .eq("idpedido", idPedido.value);
 
     if (error) { console.error("Error al actualizar pedido impreso", error); return; }
-    cargarPedidosAbiertos();
-    jalarPedidoEspecifico();
+    await cargarPedidosAbiertos();
+    await jalarPedidoEspecifico();
   };
 
   // ── Limpiar campos del panel ────────────────────────────────
@@ -212,10 +206,11 @@ export function useDomicilio() {
     horaImpresa.value       = null;
     checkimpreso.value      = false;
     productosPedido.value   = [];
-    subtotal.value          = "0.00";
+    subtotal.value          = "$0.00";
     descuent.value          = "0%";
-    totalsindesc.value      = "0.00";
-    total.value             = "0.00";
+    impuestos.value         = "$0.00";
+    totalsindesc.value      = "$0.00";
+    total.value             = "$0.00";
     direccionCompleta.value = null;
   };
 
@@ -226,11 +221,9 @@ export function useDomicilio() {
   };
 
   return {
-    // state
     checkimpreso, cliente, folio, orden, horaApertura, horaImpresa,
     subtotal, descuent, impuestos, totalsindesc, total, direccionCompleta,
     pedidosAbiertos, productosPedido,
-    // actions
     cargarPedidosAbiertos, obtenerPedido, jalarPedidoEspecifico,
     cargarProductosPedido, calcularTotales, actualizarTotalPedido,
     imprimirPedido, limpiarCampos, actualizarDespuesDeEditar,
