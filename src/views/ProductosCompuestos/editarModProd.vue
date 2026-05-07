@@ -1,5 +1,15 @@
 <template>
-    <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -11,21 +21,32 @@
       </div>
       <div class="modal-body">
         <div class="split-layout">
+
           <div class="tabla-panel">
             <p class="panel-label">Modificadores</p>
             <div class="tabla-wrapper">
               <table class="tabla">
                 <thead><tr><th>Clave</th><th>Descripción</th><th>Precio</th><th>Grupo</th></tr></thead>
                 <tbody>
-                  <tr v-for="m in modificadores" :key="m.idmodificador" @click="editarModificadores(m)" :class="{ selected: clave === m.idmodificador }">
-                    <td>{{ m.idmodificador }}</td><td>{{ m.nombre }}</td>
-                    <td>${{ m.precio }}</td><td>{{ obtenerNombreGrupoMod(m.idgrupomod) }}</td>
+                  <tr
+                    v-for="m in modificadores"
+                    :key="m.idmodificador"
+                    @click="editarModificadores(m)"
+                    :class="{ selected: clave === m.idmodificador }"
+                  >
+                    <td>{{ m.idmodificador }}</td>
+                    <td>{{ m.nombre }}</td>
+                    <td>${{ m.precio }}</td>
+                    <td>{{ obtenerNombreGrupoMod(m.idgrupomod) }}</td>
                   </tr>
-                  <tr v-if="!modificadores.length"><td colspan="4" class="tabla-empty">Sin modificadores</td></tr>
+                  <tr v-if="!modificadores.length">
+                    <td colspan="4" class="tabla-empty">Sin modificadores</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
           <div class="form-panel">
             <p class="panel-label">Datos</p>
             <div class="fields">
@@ -50,10 +71,11 @@
             </div>
             <div class="form-actions">
               <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-              <button class="btn-danger" @click="delModificador">Eliminar</button>
-              <button class="btn-primary" @click="aggModificador">Guardar</button>
+              <button class="btn-danger"    @click="delModificador">Eliminar</button>
+              <button class="btn-primary"   @click="aggModificador">Guardar</button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -69,67 +91,176 @@ import { Pencil, X } from "lucide-vue-next";
 const props = defineProps(["mostrar"]);
 const emit  = defineEmits(["cerrar", "actualizado"]);
 
-const clave       = ref(null);
-const descripcion = ref(null);
-const precio      = ref(null);
-const tipo        = ref(null);
-const gruposMod   = ref([]);
+const clave         = ref(null);
+const descripcion   = ref(null);
+const precio        = ref(null);
+const tipo          = ref(null);
+const gruposMod     = ref([]);
 const modificadores = ref([]);
 
-const limpiarCampos = () => { clave.value = null; descripcion.value = null; precio.value = null; tipo.value = null; };
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
 
-const editarModificadores = (m) => {
-  clave.value = m.idmodificador; descripcion.value = m.nombre;
-  precio.value = m.precio; tipo.value = obtenerNombreGrupoMod(m.idgrupomod);
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
 };
 
-const obtenergruposMod = async () => {
-  const { data, error } = await supabase.from("grupomodificador").select();
-  if (error) { console.error("Error al obtener grupos modificadores"); return; }
-  gruposMod.value = data;
+// ── Helpers ────────────────────────────────────────────────────
+const limpiarCampos = () => {
+  clave.value       = null; // ✅ limpia clave para próximo guardado sea inserción
+  descripcion.value = null;
+  precio.value      = null;
+  tipo.value        = null;
 };
 
 const obtenerNombreGrupoMod = (idgrupomod) => {
   const g = gruposMod.value.find(g => g.idgrupomod === idgrupomod);
-  return g ? g.nombre : "Sin grupo modificador";
+  return g ? g.nombre : "Sin grupo";
+};
+
+const editarModificadores = (m) => {
+  clave.value       = m.idmodificador;
+  descripcion.value = m.nombre;
+  precio.value      = m.precio;
+  tipo.value        = obtenerNombreGrupoMod(m.idgrupomod);
+};
+
+// ── Cargar datos ───────────────────────────────────────────────
+const obtenergruposMod = async () => {
+  const { data, error } = await supabase.from("grupomodificador").select();
+  if (error) {
+    console.error("Error al obtener grupos modificadores", error);
+    mostrarAlerta("Error al cargar grupos modificadores");
+    return;
+  }
+  gruposMod.value = data;
 };
 
 const obtenerModificadores = async () => {
   const { data, error } = await supabase.from("modificadores").select();
-  if (error) { console.error("Error al obtener modificadores", error); return; }
+  if (error) {
+    console.error("Error al obtener modificadores", error);
+    mostrarAlerta("Error al cargar modificadores");
+    return;
+  }
   modificadores.value = data;
 };
 
+// ── Guardar / actualizar modificador ──────────────────────────
 const aggModificador = async () => {
-  await obtenerModificadores(); await obtenergruposMod();
-  const existe    = modificadores.value.find(u => u.idmodificador === clave.value);
-  const grupoModi = gruposMod.value.find(u => u.nombre === tipo.value);
-  if (existe) {
-    const { error } = await supabase.from("modificadores")
-      .update({ nombre: descripcion.value, precio: precio.value, idgrupomod: grupoModi.idgrupomod })
-      .eq("idmodificador", clave.value);
-    if (error) { console.error("Error al actualizar modificador", error); return; }
-    emit("actualizado");
-  } else {
-    const { data, error } = await supabase.from("modificadores")
-      .insert([{ nombre: descripcion.value, precio: precio.value, idgrupomod: grupoModi.idgrupomod }]).select();
-    if (error) { console.error("Error al agregar modificador", error); return; }
-    clave.value = data[0].idmodificador;
-    emit("actualizado");
+  if (!descripcion.value || precio.value === null || !tipo.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
   }
+
+  // ✅ Usa memoria — sin selects extra
+  const grupoModi = gruposMod.value.find(u => u.nombre === tipo.value);
+  if (!grupoModi) {
+    mostrarAlerta("Grupo modificador no encontrado");
+    return;
+  }
+
+  const existe = modificadores.value.find(u => u.idmodificador === clave.value);
+
+  if (existe) {
+    const { error } = await supabase
+      .from("modificadores")
+      .update({
+        nombre:     descripcion.value,
+        precio:     precio.value,
+        idgrupomod: grupoModi.idgrupomod,
+      })
+      .eq("idmodificador", clave.value);
+
+    if (error) {
+      console.error("Error al actualizar modificador", error);
+      mostrarAlerta("Error al actualizar el modificador");
+      return;
+    }
+    mostrarAlerta("Modificador actualizado correctamente", "success");
+  } else {
+    const { data, error } = await supabase
+      .from("modificadores")
+      .insert([{
+        nombre:     descripcion.value,
+        precio:     precio.value,
+        idgrupomod: grupoModi.idgrupomod,
+      }])
+      .select();
+
+    if (error) {
+      console.error("Error al agregar modificador", error);
+      mostrarAlerta("Error al agregar el modificador");
+      return;
+    }
+    clave.value = data[0].idmodificador;
+    mostrarAlerta("Modificador agregado correctamente", "success");
+  }
+
   await obtenerModificadores();
+  emit("actualizado");
 };
 
+// ── Eliminar modificador ───────────────────────────────────────
 const delModificador = async () => {
-  const { error } = await supabase.from("modificadores").delete().eq("idmodificador", clave.value);
-  if (error) { console.error("Error al eliminar modificador", error); return; }
-  await obtenerModificadores(); limpiarCampos();
+  // ✅ Validar selección
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un modificador para eliminar");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("modificadores")
+    .delete()
+    .eq("idmodificador", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar modificador", error);
+    mostrarAlerta("Error al eliminar el modificador");
+    return;
+  }
+
+  mostrarAlerta("Modificador eliminado correctamente", "success");
+  limpiarCampos();
+  await obtenerModificadores();
+  emit("actualizado");
 };
 
-onMounted(() => { obtenergruposMod(); obtenerModificadores(); });
+onMounted(() => {
+  obtenergruposMod();
+  obtenerModificadores();
+});
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1200; }
 .modal-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.14); width: 680px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
@@ -137,7 +268,7 @@ onMounted(() => { obtenergruposMod(); obtenerModificadores(); });
 .modal-icon { width: 28px; height: 28px; border-radius: 8px; background: #e6fff0; color: #2db760; display: flex; align-items: center; justify-content: center; }
 .close-btn { width: 26px; height: 26px; border: none; background: #f5f5f5; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #888; }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px;}
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 .split-layout { display: flex; flex: 1; overflow: hidden; }
 .tabla-panel { width: 320px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
 .panel-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #bbb; margin: 0 0 8px; flex-shrink: 0; }
@@ -165,26 +296,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .btn-primary { flex: 1; padding: 7px 12px; border: none; border-radius: 8px; background: #2db760; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
 .btn-primary:hover { background: #239e51; }
 
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
-.fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
-.fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; }
+.fade-slide-enter-from .modal-card, .fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
+.fade-slide-enter-to .modal-card, .fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

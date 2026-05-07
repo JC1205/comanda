@@ -1,5 +1,15 @@
 <template>
-      <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -52,13 +62,13 @@
             <table class="tabla">
               <thead><tr><th>Clave</th><th>Descripción</th><th>Precio</th><th>Grupo</th></tr></thead>
               <tbody>
-                <tr v-for="m in modificadores" :key="m.idmodificador">
+                <tr v-for="m in modificadoresFiltrados" :key="m.idmodificador">
                   <td>{{ m.idmodificador }}</td>
                   <td>{{ m.nombre }}</td>
                   <td>${{ m.precio }}</td>
                   <td>{{ obtenerNombreGrupoMod(m.idgrupomod) }}</td>
                 </tr>
-                <tr v-if="!modificadores.length">
+                <tr v-if="!modificadoresFiltrados.length">
                   <td colspan="4" class="tabla-empty">Sin modificadores</td>
                 </tr>
               </tbody>
@@ -77,7 +87,7 @@
 </template>
 
 <script setup>
-import { defineEmits, defineProps, ref, onMounted, watch } from "vue";
+import { defineEmits, defineProps, ref, onMounted, watch, computed } from "vue";
 import { Layers, X } from "lucide-vue-next";
 import { supabase } from "../supabase/supabase.js";
 import editarGrupo   from "./ProductosCompuestos/editarGrupoModificador.vue";
@@ -94,13 +104,39 @@ const mostrarAsignarMod    = ref(false);
 const gruposAnadidos = ref([]);
 const modificadores  = ref([]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Abrir submodales ───────────────────────────────────────────
 const abrirEditarGrupo   = () => { mostrarEditarGrupo.value = true; };
 const abrirEditarModProd = () => { mostrarEditarModProd.value = true; };
-const abrirAsignarMod    = async () => { mostrarAsignarMod.value = true; await cargarGruposModif(); };
+const abrirAsignarMod    = async () => {
+  if (!claveProducto.value) {
+    mostrarAlerta("Selecciona un producto primero");
+    return;
+  }
+  await cargarGruposModif();
+  mostrarAsignarMod.value = true;
+};
 
-const actualizarDespuesDeEditar = () => { cargarGruposAsignados(); obtenerModificadores(); };
+// ── Actualizar tras editar ─────────────────────────────────────
+const actualizarDespuesDeEditar = () => {
+  cargarGruposAsignados();
+  obtenerModificadores();
+};
 
+// ── Cargar grupos asignados al producto ────────────────────────
 const cargarGruposAsignados = async () => {
+  if (!claveProducto.value) return;
   try {
     const { data, error } = await supabase
       .from("prodgrupmodificador")
@@ -111,25 +147,74 @@ const cargarGruposAsignados = async () => {
   } catch (e) {
     console.error("Error al cargar grupos asignados:", e);
     gruposAnadidos.value = [];
+    mostrarAlerta("Error al cargar grupos asignados");
   }
 };
 
+// ── Obtener nombre del grupo modificador ──────────────────────
 const obtenerNombreGrupoMod = (idgrupomod) => {
-  const mod = gruposAnadidos.value.find(g => g.idgrupomod === idgrupomod);
-  return mod ? mod.nombre : "Sin grupo modificador";
+  const grupo = gruposAnadidos.value.find(g => g.idgrupomod === idgrupomod);
+  return grupo ? grupo.nombre : "Sin grupo";
 };
 
+// ── Obtener modificadores filtrados por grupos del producto ───
 const obtenerModificadores = async () => {
   const { data, error } = await supabase.from("modificadores").select();
-  if (error) { console.error("Error al obtener modificadores", error); return; }
+  if (error) {
+    console.error("Error al obtener modificadores", error);
+    mostrarAlerta("Error al cargar modificadores");
+    return;
+  }
   modificadores.value = data;
 };
 
-watch(claveProducto, (v) => { if (v != null) cargarGruposAsignados(); }, { immediate: true });
-onMounted(() => { cargarGruposAsignados(); obtenerModificadores(); });
+// ✅ Solo muestra modificadores que pertenecen a grupos asignados al producto
+const modificadoresFiltrados = computed(() => {
+  const idsGrupos = gruposAnadidos.value.map(g => g.idgrupomod);
+  return modificadores.value.filter(m => idsGrupos.includes(m.idgrupomod));
+});
+
+// ✅ watch sin immediate para evitar doble llamada con onMounted
+watch(claveProducto, (v) => {
+  if (v != null) {
+    cargarGruposAsignados();
+    obtenerModificadores();
+  }
+});
+
+// ✅ Solo onMounted carga al inicio
+onMounted(() => {
+  if (claveProducto.value) {
+    cargarGruposAsignados();
+    obtenerModificadores();
+  }
+});
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.35);
   display: flex; align-items: center; justify-content: center; z-index: 1050;
@@ -159,7 +244,10 @@ onMounted(() => { cargarGruposAsignados(); obtenerModificadores(); });
   display: flex; align-items: center; justify-content: center; color: #888;
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { flex: 1; overflow-y: auto; padding: 10px 36px 32px 32px; display: flex; flex-direction: column; gap: 0; }
+.modal-body {
+  flex: 1; overflow-y: auto; padding: 10px 36px 32px 32px;
+  display: flex; flex-direction: column; gap: 0;
+}
 .section { display: flex; flex-direction: column; gap: 10px; }
 .section-header { display: flex; align-items: center; justify-content: space-between; }
 .section-title { font-size: 13px; font-weight: 700; color: #333; margin: 0; }
@@ -182,25 +270,11 @@ onMounted(() => { cargarGruposAsignados(); obtenerModificadores(); });
 .divider { height: 1px; background: #f0f0f0; margin: 14px 0; flex-shrink: 0; }
 
 .fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
+.fade-slide-leave-active { transition: all 0.3s ease; }
 .fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
+.fade-slide-leave-to { opacity: 0; }
 .fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
+.fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
 .fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

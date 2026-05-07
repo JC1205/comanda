@@ -1,4 +1,14 @@
 <template>
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
   <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
@@ -119,9 +129,8 @@
 
           <div class="form-actions">
             <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-            <button class="btn-danger"@click="eliminarProducto" >Eliminar</button>
+            <button class="btn-danger" @click="eliminarProducto">Eliminar</button>
             <button class="btn-primary" @click="aggProducto">Guardar</button>
-            
           </div>
         </div>
       </div>
@@ -151,64 +160,67 @@ const emit  = defineEmits(["cerrar"]);
 const mostrarProductoComp = ref(false);
 const mostrarAggGrupo     = ref(false);
 const mostrarAggSubgrupo  = ref(false);
-const isChecked   = ref(false);
-const grupo       = ref(null);
-const subgrupo    = ref(null);
-const clave       = ref(null);
-const descripcion = ref(null);
-const precio      = ref(null);
+const isChecked    = ref(false);
+const grupo        = ref(null);
+const subgrupo     = ref(null);
+const clave        = ref(null);
+const descripcion  = ref(null);
+const precio       = ref(null);
 const preciosinimp = ref(null);
-const iva         = ref(16);
-const hover       = ref(false);
-const productos   = ref([]);
+const iva          = ref(16);
+const productos    = ref([]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Watchers ───────────────────────────────────────────────────
 watch(iva, (v) => { if (v !== 16) iva.value = 16; });
-watch(precio, (v) => { if (v) calcularPrecioSinIVA(); });
+watch(precio, (v) => {
+  // ✅ Solo calcula si hay un valor numérico válido mayor a 0
+  if (v && !isNaN(v) && Number(v) > 0) calcularPrecioSinIVA();
+  else preciosinimp.value = null;
+});
 
+// ── Helpers ────────────────────────────────────────────────────
 const limpiarCampos = () => {
-  grupo.value = null; subgrupo.value = null; clave.value = null;
-  descripcion.value = null; precio.value = null; preciosinimp.value = null;
-  isChecked.value = false;
+  grupo.value        = null;
+  subgrupo.value     = null;
+  clave.value        = null;
+  descripcion.value  = null;
+  precio.value       = null;
+  preciosinimp.value = null;
+  isChecked.value    = false;
 };
 
 const abrirProductoComp = () => { if (isChecked.value) mostrarProductoComp.value = true; };
 const abrirAggGrupo     = () => { mostrarAggGrupo.value = true; };
 const abrirAggSubgrupo  = () => { mostrarAggSubgrupo.value = true; };
 
-
-const eliminarProducto = async () => {
-  if (!clave.value) {
-    console.error("No hay producto seleccionado");
-    return;
-  }
-
-  const { error } = await supabase
-    .from('productos')
-    .delete()
-    .eq('idproducto', clave.value);
-
-  if (error) {
-    console.error("Error al eliminar producto", error);
-  } else {
-    console.log("Producto eliminado correctamente");
-
-    // Limpiar inputs
-    grupo.value = null;
-    subgrupo.value = null;
-    clave.value = null;
-    descripcion.value = null;
-    precio.value = null;
-    preciosinimp.value = null;
-    isChecked.value = false;
-
-    // Recargar tabla
-    consultarProductos();
-  }
+const calcularPrecioSinIVA = () => {
+  if (precio.value && !isNaN(precio.value) && Number(precio.value) > 0)
+    preciosinimp.value = (precio.value / (1 + iva.value / 100)).toFixed(2);
 };
 
+// ── Consultar productos ────────────────────────────────────────
+const consultarProductos = async () => {
+  const { data, error } = await supabase.from("productos").select();
+  if (error) { console.error("Error al obtener productos", error); return; }
+  productos.value = data;
+};
+
+// ── Seleccionar producto de la tabla ──────────────────────────
 const seleccionarProducto = (producto) => {
-  if (producto.idgrupo != null) grupo.value = producto.idgrupo;
-  else subgrupo.value = producto.idsubgrupo;
+  grupo.value        = producto.idgrupo ?? null;
+  subgrupo.value     = producto.idsubgrupo ?? null;
   clave.value        = producto.idproducto;
   descripcion.value  = producto.nombre;
   precio.value       = producto.precio;
@@ -217,44 +229,101 @@ const seleccionarProducto = (producto) => {
   claveProducto.value = clave.value;
 };
 
-const consultarProductos = async () => {
-  const { data, error } = await supabase.from("productos").select();
-  if (error) { console.error("Error al obtener productos", error); return; }
-  productos.value = data;
-};
-
-const aggProducto = async () => {
-  await consultarProductos();
-  const existe = productos.value.find(u => u.idproducto === clave.value);
-  if (existe) {
-    const { error } = await supabase.from("productos").update({
-      idgrupo: grupo.value, idsubgrupo: subgrupo.value || null,
-      nombre: descripcion.value, precio: precio.value,
-      preciosinimporte: preciosinimp.value, compuesto: isChecked.value,
-    }).eq("idproducto", clave.value);
-    if (error) { console.error("Error al actualizar producto", error); return; }
-    console.log("Producto actualizado correctamente");
-  } else {
-    const { data, error } = await supabase.from("productos").insert([{
-      nombre: descripcion.value, precio: precio.value,
-      preciosinimporte: preciosinimp.value, compuesto: isChecked.value,
-      idgrupo: grupo.value, idsubgrupo: subgrupo.value,
-    }]).select();
-    if (error) { console.error("Error al agregar producto", error); return; }
-    clave.value = data[0].idproducto;
-    console.log("Producto agregado correctamente");
+// ── Eliminar producto ──────────────────────────────────────────
+const eliminarProducto = async () => {
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un producto para eliminar");
+    return;
   }
+
+  const { error } = await supabase
+    .from("productos")
+    .delete()
+    .eq("idproducto", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar producto", error);
+    mostrarAlerta("Error al eliminar el producto");
+    return;
+  }
+
+  mostrarAlerta("Producto eliminado correctamente", "success");
+  limpiarCampos(); // ✅ usa la función, sin duplicar
   await consultarProductos();
 };
 
-const calcularPrecioSinIVA = () => {
-  if (precio.value) preciosinimp.value = (precio.value / (1 + iva.value / 100)).toFixed(2);
+// ── Guardar / actualizar producto ──────────────────────────────
+const aggProducto = async () => {
+  // ✅ Validación
+  if (!descripcion.value || !precio.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
+  }
+
+  // ✅ Verificar si existe usando clave directamente, sin recargar toda la tabla
+  if (clave.value) {
+    const existente = productos.value.find(u => u.idproducto === clave.value);
+    if (existente) {
+      const { error } = await supabase.from("productos").update({
+        idgrupo:          grupo.value,
+        idsubgrupo:       subgrupo.value || null,
+        nombre:           descripcion.value,
+        precio:           precio.value,
+        preciosinimporte: preciosinimp.value,
+        compuesto:        isChecked.value,
+      }).eq("idproducto", clave.value);
+
+      if (error) { console.error("Error al actualizar producto", error); mostrarAlerta("Error al actualizar el producto"); return; }
+      mostrarAlerta("Producto actualizado correctamente", "success");
+      await consultarProductos();
+      return;
+    }
+  }
+
+  // Insertar nuevo
+  const { data, error } = await supabase.from("productos").insert([{
+    nombre:           descripcion.value,
+    precio:           precio.value,
+    preciosinimporte: preciosinimp.value,
+    compuesto:        isChecked.value,
+    idgrupo:          grupo.value,
+    idsubgrupo:       subgrupo.value,
+  }]).select();
+
+  if (error) { console.error("Error al agregar producto", error); mostrarAlerta("Error al agregar el producto"); return; }
+
+  clave.value = data[0].idproducto;
+  mostrarAlerta("Producto agregado correctamente", "success");
+  await consultarProductos();
 };
 
 onMounted(() => { consultarProductos(); });
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.35);
@@ -293,10 +362,11 @@ onMounted(() => { consultarProductos(); });
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-.modal-body { display: flex; flex: 1; overflow: hidden; 
-padding: 10px 36px 32px 32px;}
+.modal-body {
+  display: flex; flex: 1; overflow: hidden;
+  padding: 10px 36px 32px 32px;
+}
 
-/* Tabla */
 .tabla-panel {
   width: 360px; flex-shrink: 0;
   border-right: 1px solid #f0f0f0;
@@ -311,12 +381,11 @@ padding: 10px 36px 32px 32px;}
 }
 
 .tabla-wrapper {
-  height: 450px;          /* 🔥 altura fija */
-  overflow-y: auto;       /* 🔥 scroll vertical */
-  overflow-x: hidden;     /* opcional */
+  height: 450px;
+  overflow-y: auto;
+  overflow-x: hidden;
   border-radius: 10px;
 }
-
 
 .tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
 
@@ -337,7 +406,6 @@ padding: 10px 36px 32px 32px;}
 .tabla tr.selected td { background: #f0fdf5; }
 .tabla-empty { text-align: center; color: #ccc; padding: 20px 0; font-size: 13px; }
 
-/* Formulario */
 .form-panel {
   flex: 1; display: flex; flex-direction: column;
   padding: 14px 18px; overflow-y: auto;
@@ -379,7 +447,6 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .icon-btn:hover { background: #f5f5f5; border-color: #ccc; }
 
-/* Toggle compuesto */
 .compuesto-row {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px;
@@ -420,8 +487,8 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   background: #fff; font-size: 13px; font-weight: 600;
   color: #e53935; cursor: pointer; transition: all 0.15s;
 }
+.btn-danger:hover { background: #fff5f5; }
 
-/* Acciones */
 .form-actions {
   display: flex; gap: 8px;
   padding-top: 12px; margin-top: 8px;
@@ -443,27 +510,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .btn-primary:hover { background: #239e51; }
 
-
 .fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
+.fade-slide-leave-active { transition: all 0.3s ease; }
 .fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
+.fade-slide-leave-to { opacity: 0; }
 .fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
+.fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
 .fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

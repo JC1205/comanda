@@ -1,4 +1,14 @@
 <template>
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
   <div v-if="mostrar" class="gestor-wrapper">
 
     <!-- ABRIR TURNO -->
@@ -19,9 +29,8 @@
           </div>
           
           <button class="close-tab-btn" @click="$emit('cerrar')">
-          <X :size="15" />
+            <X :size="15" />
           </button>
-
         </div>
 
         <div class="divider" />
@@ -35,13 +44,13 @@
               type="number"
               placeholder="0.00"
               class="field-input"
+              @keydown="bloquearTeclas"
             />
           </div>
         </div>
 
         <div class="btn-group">
           <button class="btn-confirmar" @click="confirmar">
-          
             Abrir Turno
           </button>
         </div>
@@ -65,26 +74,25 @@
           </div>
 
           <button class="close-tab-btn" @click="$emit('cerrar')">
-          <X :size="15" />
-        </button>
-
+            <X :size="15" />
+          </button>
         </div>
 
         <div class="divider" />
 
-      <div class="field-row" v-for="(item, index) in caja" :key="index">
-  <label class="field-label-row">{{ item.descripcion }}</label>
-
-  <div class="input-wrap">
-    <span class="input-prefix">$</span>
-    <input
-      type="number"
-      v-model.number="item.importe"
-      placeholder="0.00"
-      class="field-input"
-    />
-  </div>
-</div>
+        <div class="field-row" v-for="(item, index) in caja" :key="index">
+          <label class="field-label-row">{{ item.descripcion }}</label>
+          <div class="input-wrap">
+            <span class="input-prefix">$</span>
+            <input
+              type="number"
+              v-model.number="item.importe"
+              placeholder="0.00"
+              class="field-input"
+              @keydown="bloquearTeclas"
+            />
+          </div>
+        </div>
 
         <div class="btn-group">
           <button class="btn-cerrar" @click="confirmarCierre">
@@ -108,6 +116,25 @@ import { X } from "lucide-vue-next";
 const props = defineProps(["mostrar"]);
 const emit  = defineEmits(["cerrar", "turnoAbierto", "turnoCerrado"]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Bloquear teclas inválidas ──────────────────────────────────
+function bloquearTeclas(event) {
+  if (["e", "E", "+", "-"].includes(event.key)) {
+    event.preventDefault();
+  }
+}
+
 // ── Estado abrir turno ─────────────────────────────────────────
 const montoInicial = ref(null);
 
@@ -118,7 +145,11 @@ const hora  = ref(now.toTimeString().split(" ")[0]);
 const confirmar = async () => {
   await obtenerTurno();
   if (turno.value) return;
-  if (montoInicial.value === null) return;
+
+  if (montoInicial.value === null || montoInicial.value === '') {
+    mostrarAlerta("Ingresa el efectivo inicial");
+    return;
+  }
 
   const { error } = await supabase.from("turnos").insert([{
     idusuario:    userLogin.value,
@@ -127,48 +158,87 @@ const confirmar = async () => {
     montoinicial: montoInicial.value,
   }]);
 
-  if (error) { console.error("Error:", error.message); return; }
+  if (error) {
+    console.error("Error:", error.message);
+    mostrarAlerta("Error al abrir el turno, intenta de nuevo");
+    return;
+  }
 
   await obtenerTurno();
-  turno.value   = true;
+  turno.value      = true;
   numPedidos.value = 1;
-  emit("turnoAbierto");
-  emit("cerrar");
+  mostrarAlerta("¡Turno abierto correctamente!", "success");
+  setTimeout(() => {
+    emit("turnoAbierto");
+    emit("cerrar");
+  }, 1000);
 };
 
 // ── Estado cerrar turno ────────────────────────────────────────
 const caja = ref([
-  { clave: "EF", descripcion: "Efectivo",      importe: null },
-  { clave: "TJ", descripcion: "Tarjeta",        importe: null },
-  { clave: "TR", descripcion: "Transferencia",  importe: null },
+  { clave: "EF", descripcion: "Efectivo",     importe: null },
+  { clave: "TJ", descripcion: "Tarjeta",       importe: null },
+  { clave: "TR", descripcion: "Transferencia", importe: null },
 ]);
 
 const confirmarCierre = async () => {
-  if (caja.value.some(i => i.importe === null)) return;
+  if (caja.value.some(i => i.importe === null || i.importe === '')) {
+    mostrarAlerta("Rellena todos los campos");
+    return;
+  }
 
   const horaIso = new Date().toISOString().split("T")[1].split(".")[0];
 
   const { error } = await supabase
     .from("turnos")
     .update({
-      horacierre:      horaIso,
-      efectivoFinal:   caja.value[0].importe,
-      tarjetasFinal:   caja.value[1].importe,
-      transferFinal:   caja.value[2].importe,
+      horacierre:    horaIso,
+      efectivoFinal: caja.value[0].importe,
+      tarjetasFinal: caja.value[1].importe,
+      transferFinal: caja.value[2].importe,
     })
     .eq("idturno", idTurno.value);
 
-  if (error) { console.error("Error al guardar cierre:", error); return; }
+  if (error) {
+    console.error("Error al guardar cierre:", error);
+    mostrarAlerta("Error al cerrar el turno, intenta de nuevo");
+    return;
+  }
 
   turno.value   = false;
   idTurno.value = null;
-  emit("turnoCerrado");
-  emit("cerrar");
+  mostrarAlerta("¡Turno cerrado correctamente!", "success");
+  setTimeout(() => {
+    emit("turnoCerrado");
+    emit("cerrar");
+  }, 1000);
 };
 </script>
 
 <style scoped>
-/* ── Wrapper ───────────────────────────────────────────────── */
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .gestor-wrapper {
   width: 100%;
   height: 100%;
@@ -178,7 +248,6 @@ const confirmarCierre = async () => {
   background: transparent;
 }
 
-/* ── Card principal ────────────────────────────────────────── */
 .turno-card {
   background: #ffffff;
   border-radius: 20px;
@@ -191,7 +260,6 @@ const confirmarCierre = async () => {
   gap: 20px;
 }
 
-/* ── Header ────────────────────────────────────────────────── */
 .card-icon-header {
   display: flex;
   align-items: center;
@@ -228,14 +296,12 @@ const confirmarCierre = async () => {
   margin: 2px 0 0;
 }
 
-/* ── Divider ───────────────────────────────────────────────── */
 .divider {
   height: 1px;
   background: #f0f0f0;
   margin: 0 -4px;
 }
 
-/* ── Fields ────────────────────────────────────────────────── */
 .field-group {
   display: flex;
   flex-direction: column;
@@ -261,10 +327,6 @@ const confirmarCierre = async () => {
   border-color: #3cd677;
 }
 
-.input-wrap--sm {
-  border-radius: 8px;
-}
-
 .input-prefix {
   padding: 12px;
   font-size: 15px;
@@ -287,14 +349,12 @@ const confirmarCierre = async () => {
   background: transparent;
 }
 
-/* quitar flechas spinner */
 .field-input::-webkit-inner-spin-button,
 .field-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-/* ── Tabla cierre ──────────────────────────────────────────── */
 .tabla-cierre {
   width: 100%;
   border-collapse: collapse;
@@ -322,7 +382,6 @@ const confirmarCierre = async () => {
   width: 60px;
 }
 
-/* ── Botones ───────────────────────────────────────────────── */
 .btn-group {
   display: flex;
   gap: 12px;
@@ -366,7 +425,6 @@ const confirmarCierre = async () => {
   transform: translateY(-1px);
 }
 
-/* ── Transición entre vistas ───────────────────────────────── */
 .panel-fade-enter-active,
 .panel-fade-leave-active {
   transition: all 0.3s ease;
@@ -382,8 +440,6 @@ const confirmarCierre = async () => {
   transform: translateY(-12px);
 }
 
-
-/* fila horizontal */
 .field-row {
   display: flex;
   align-items: center;
@@ -391,14 +447,12 @@ const confirmarCierre = async () => {
   gap: 16px;
 }
 
-/* label izquierda */
 .field-label-row {
   font-size: 14px;
   color: #555;
   min-width: 140px;
 }
 
-/* input derecha */
 .field-row .input-wrap {
   flex: 1;
   max-width: 200px;

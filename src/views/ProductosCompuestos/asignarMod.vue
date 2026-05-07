@@ -1,5 +1,15 @@
 <template>
-    <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -19,11 +29,20 @@
               <table class="tabla">
                 <thead><tr><th>IdAsig</th><th>Clave</th><th>Descripción</th><th>Máx.</th></tr></thead>
                 <tbody>
-                  <tr v-for="g in gruposAnadidos" :key="g.idgrupomod" @click="seleccionarModProd(g)" :class="{ selected: claveMod === g.idasignacion }">
-                    <td>{{ g.idasignacion }}</td><td>{{ g.idgrupomod }}</td>
-                    <td>{{ g.nombre }}</td><td>{{ g.modificadoresmax }}</td>
+                  <tr
+                    v-for="g in gruposAnadidos"
+                    :key="g.idgrupomod"
+                    @click="seleccionarModProd(g)"
+                    :class="{ selected: claveMod === g.idasignacion }"
+                  >
+                    <td>{{ g.idasignacion }}</td>
+                    <td>{{ g.idgrupomod }}</td>
+                    <td>{{ g.nombre }}</td>
+                    <td>{{ g.modificadoresmax }}</td>
                   </tr>
-                  <tr v-if="!gruposAnadidos.length"><td colspan="4" class="tabla-empty">Sin asignaciones</td></tr>
+                  <tr v-if="!gruposAnadidos.length">
+                    <td colspan="4" class="tabla-empty">Sin asignaciones</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -46,8 +65,8 @@
             </div>
             <div class="form-actions">
               <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-              <button class="btn-danger" @click="delGrupoModProd">Eliminar</button>
-              <button class="btn-primary" @click="addGrupoModProd">Guardar</button>
+              <button class="btn-danger"    @click="delGrupoModProd">Eliminar</button>
+              <button class="btn-primary"   @click="addGrupoModProd">Guardar</button>
             </div>
           </div>
 
@@ -67,14 +86,29 @@ import { claveProducto, gruposModificadores, cargarGruposModif } from "@/store/a
 const props = defineProps(["mostrar"]);
 const emit  = defineEmits(["cerrar", "actualizado"]);
 
-const claveMod      = ref(null);
-const tipo          = ref(null);
+const claveMod       = ref(null);
+const tipo           = ref(null);
 const gruposAnadidos = ref([]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Helpers ────────────────────────────────────────────────────
 const seleccionarModProd = (g) => { claveMod.value = g.idasignacion; };
 const limpiarCampos      = () => { claveMod.value = null; tipo.value = null; };
 
+// ── Cargar grupos asignados ────────────────────────────────────
 const cargarGruposAsignados = async () => {
+  if (!claveProducto.value) return;
   try {
     const { data, error } = await supabase
       .from("prodgrupmodificador")
@@ -82,61 +116,126 @@ const cargarGruposAsignados = async () => {
       .eq("idproducto", claveProducto.value);
     if (error) throw new Error(error.message);
     gruposAnadidos.value = data.map(item => ({
-      idasignacion:   item.idprodgrupmod,
-      idgrupomod:     item.idgrupomod,
-      nombre:         item.grupomodificador.nombre,
+      idasignacion:    item.idprodgrupmod,
+      idgrupomod:      item.idgrupomod,
+      nombre:          item.grupomodificador.nombre,
       modificadoresmax: item.grupomodificador.modificadoresmax,
     }));
   } catch (e) {
     console.error("Error al cargar grupos asignados:", e);
     gruposAnadidos.value = [];
+    mostrarAlerta("Error al cargar grupos asignados");
   }
 };
 
-const arraySelecGrupoMod = ref(null);
-const selecGrupoMod = async () => {
-  const { data, error } = await supabase.from("grupomodificador").select();
-  if (error) { console.error("Error al obtener grupos modificadores", error); return; }
-  arraySelecGrupoMod.value = data;
-};
-
+// ── Guardar / actualizar asignación ───────────────────────────
 const addGrupoModProd = async () => {
-  await selecGrupoMod();
-  const grupoModi = arraySelecGrupoMod.value.find(u => u.nombre === tipo.value);
-
-  const { data: existing, error: errExist } = await supabase.from("prodgrupmodificador").select();
-  if (errExist) { console.error("Error al obtener uniones", errExist); return; }
-
-  const existe = existing.find(u => u.idprodgrupmod === claveMod.value);
-  if (existe) {
-    const { error } = await supabase.from("prodgrupmodificador")
-      .update({ idgrupomod: grupoModi.idgrupomod }).eq("idprodgrupmod", claveMod.value);
-    if (error) { console.error("Error al actualizar", error); return; }
-  } else {
-    const { data, error } = await supabase.from("prodgrupmodificador")
-      .insert({ idproducto: claveProducto.value, idgrupomod: grupoModi.idgrupomod }).select();
-    if (error) { console.error("Error al unir grupo modificador", error); return; }
-    claveMod.value = data[0].idprodgrupmod;
+  if (!tipo.value) {
+    mostrarAlerta("Selecciona un grupo modificador");
+    return;
   }
+
+  // ✅ Usa gruposModificadores de auth.js — sin select extra
+  const grupoModi = gruposModificadores.value.find(u => u.nombre === tipo.value);
+  if (!grupoModi) {
+    mostrarAlerta("Grupo modificador no encontrado");
+    return;
+  }
+
+  // ✅ Usa gruposAnadidos en memoria — sin select extra
+  const existe = gruposAnadidos.value.find(u => u.idasignacion === claveMod.value);
+
+  if (existe) {
+    const { error } = await supabase
+      .from("prodgrupmodificador")
+      .update({ idgrupomod: grupoModi.idgrupomod })
+      .eq("idprodgrupmod", claveMod.value);
+    if (error) {
+      console.error("Error al actualizar", error);
+      mostrarAlerta("Error al actualizar la asignación");
+      return;
+    }
+    mostrarAlerta("Asignación actualizada correctamente", "success");
+  } else {
+    const { data, error } = await supabase
+      .from("prodgrupmodificador")
+      .insert({ idproducto: claveProducto.value, idgrupomod: grupoModi.idgrupomod })
+      .select();
+    if (error) {
+      console.error("Error al asignar grupo modificador", error);
+      mostrarAlerta("Error al guardar la asignación");
+      return;
+    }
+    claveMod.value = data[0].idprodgrupmod;
+    mostrarAlerta("Grupo asignado correctamente", "success");
+  }
+
   tipo.value = null;
   await cargarGruposAsignados();
   await cargarGruposModif();
   emit("actualizado");
 };
 
+// ── Eliminar asignación ────────────────────────────────────────
 const delGrupoModProd = async () => {
-  const { error } = await supabase.from("prodgrupmodificador").delete().eq("idprodgrupmod", claveMod.value);
-  if (error) { console.error("Error al eliminar union", error); return; }
-  await cargarGruposModif();
-  await cargarGruposAsignados();
+  // ✅ Validar que haya algo seleccionado
+  if (!claveMod.value) {
+    mostrarAlerta("Selecciona una asignación para eliminar");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("prodgrupmodificador")
+    .delete()
+    .eq("idprodgrupmod", claveMod.value);
+
+  if (error) {
+    console.error("Error al eliminar unión", error);
+    mostrarAlerta("Error al eliminar la asignación");
+    return;
+  }
+
+  mostrarAlerta("Asignación eliminada correctamente", "success");
   limpiarCampos();
+  await cargarGruposAsignados();
+  await cargarGruposModif();
   emit("actualizado");
 };
 
-watch(claveProducto, (v) => { if (v != null) cargarGruposAsignados(); }, { immediate: true });
+// ✅ Sin immediate — onMounted se encarga del inicio
+watch(claveProducto, (v) => {
+  if (v != null) cargarGruposAsignados();
+});
+
+onMounted(() => {
+  if (claveProducto.value) cargarGruposAsignados();
+});
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1200; }
 .modal-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.14); width: 640px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
@@ -144,7 +243,7 @@ watch(claveProducto, (v) => { if (v != null) cargarGruposAsignados(); }, { immed
 .modal-icon { width: 28px; height: 28px; border-radius: 8px; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; }
 .close-btn { width: 26px; height: 26px; border: none; background: #f5f5f5; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #888; }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px;}
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 .split-layout { display: flex; flex: 1; overflow: hidden; }
 .tabla-panel { width: 320px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
 .panel-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #bbb; margin: 0 0 8px; flex-shrink: 0; }
@@ -172,26 +271,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .btn-primary { flex: 1; padding: 7px 12px; border: none; border-radius: 8px; background: #0284c7; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
 .btn-primary:hover { background: #0369a1; }
 
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
-.fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
-.fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; }
+.fade-slide-enter-from .modal-card, .fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
+.fade-slide-enter-to .modal-card, .fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

@@ -1,5 +1,15 @@
 <template>
-    <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
 
@@ -66,7 +76,14 @@
             </div>
             <div class="field-group">
               <label class="field-label">Contraseña</label>
-              <input v-model="password" type="password" class="field-input" placeholder="••••••" />
+              <input
+                v-model="password"
+                type="password"
+                class="field-input"
+                :class="{ 'field-input--readonly': userRol !== 'Gerente' }"
+                :readonly="userRol !== 'Gerente'"
+                :placeholder="userRol !== 'Gerente' ? 'Sin permisos para cambiar' : '••••••'"
+              />
             </div>
             <div class="field-group">
               <label class="field-label">Usuario</label>
@@ -91,6 +108,7 @@
 import { defineProps, defineEmits, ref, onMounted } from "vue";
 import { Users, X } from "lucide-vue-next";
 import { supabase } from "@/supabase/supabase";
+import { userRol } from "@/store/auth.js";
 
 const props = defineProps(["mostrar"]);
 const emit  = defineEmits(["cerrar"]);
@@ -102,56 +120,135 @@ const password = ref(null);
 const user     = ref(null);
 const usuarios = ref([]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Cargar usuarios ────────────────────────────────────────────
 const cargarUsuarios = async () => {
   const { data, error } = await supabase.from("usuarios").select();
   if (error) { console.error("Error al cargar usuarios:", error.message); return; }
   usuarios.value = data;
 };
 
+// ── Seleccionar usuario ────────────────────────────────────────
 const seleccionarUsuario = (usuario) => {
   clave.value    = usuario.idusuario;
   nombre.value   = usuario.name;
   tipo.value     = usuario.rol;
-  password.value = usuario.password;
+  // ✅ Solo carga la contraseña si es Gerente
+  password.value = userRol.value === "Gerente" ? usuario.password : null;
   user.value     = usuario.userName;
 };
 
+// ── Limpiar ────────────────────────────────────────────────────
 const limpiarCampos = () => {
-  clave.value = null; nombre.value = null;
-  tipo.value = null; password.value = null; user.value = null;
+  clave.value    = null; // ✅ limpia clave para que el próximo guardado sea inserción
+  nombre.value   = null;
+  tipo.value     = null;
+  password.value = null;
+  user.value     = null;
 };
 
+// ── Eliminar usuario ───────────────────────────────────────────
 const delUsuario = async () => {
-  if (clave.value === null) { console.error("Llena el campo clave"); return; }
-  const { data, error } = await supabase.from("usuarios").select();
-  if (error) { console.error("Error al obtener usuarios", error); return; }
-  const existe = data.find(u => u.idusuario === clave.value);
-  if (!existe) { console.error("No existe un usuario con esa clave"); return; }
-  const { error: errDel } = await supabase.from("usuarios").delete().eq("idusuario", clave.value);
-  if (errDel) { console.error("Error al eliminar el usuario", errDel); return; }
-  console.log("Usuario eliminado correctamente");
-  await cargarUsuarios();
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un usuario para eliminar");
+    return;
+  }
+
+  // ✅ Usa usuarios.value en memoria, sin select extra
+  const existe = usuarios.value.find(u => u.idusuario === clave.value);
+  if (!existe) {
+    mostrarAlerta("No existe un usuario con esa clave");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("usuarios")
+    .delete()
+    .eq("idusuario", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar el usuario", error);
+    mostrarAlerta("Error al eliminar el usuario");
+    return;
+  }
+
+  mostrarAlerta("Usuario eliminado correctamente", "success");
   limpiarCampos();
+  await cargarUsuarios();
 };
 
+// ── Guardar / actualizar usuario ───────────────────────────────
 const aggUsuario = async () => {
-  const { data: lista, error } = await supabase.from("usuarios").select();
-  if (error) { console.error("Error al obtener usuarios:", error); return; }
-  const existe = lista.find(u => u.idusuario === clave.value);
-  if (existe) {
-    const { error: errorUp } = await supabase.from("usuarios").update({
-      name: nombre.value, password: password.value, rol: tipo.value, userName: user.value,
-    }).eq("idusuario", clave.value);
-    if (errorUp) { console.error("Error al actualizar:", errorUp); return; }
-    console.log("Usuario actualizado correctamente");
-  } else {
-    const { data: dataAgg, error: errorAg } = await supabase.from("usuarios").insert([{
-      name: nombre.value, password: password.value, rol: tipo.value, userName: user.value,
-    }]).select();
-    if (errorAg) { console.error("Error al agregar usuario", errorAg); return; }
-    clave.value = dataAgg[0].idusuario;
-    console.log("Usuario agregado:", dataAgg[0]);
+  // ✅ Validación campos obligatorios
+  if (!nombre.value || !tipo.value || !user.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
   }
+
+  // ✅ Solo Gerente puede guardar con contraseña nueva
+  if (!password.value && userRol.value === "Gerente") {
+    mostrarAlerta("Ingresa una contraseña");
+    return;
+  }
+
+  // ✅ Usa usuarios.value en memoria, sin select extra
+  const existe = usuarios.value.find(u => u.idusuario === clave.value);
+
+  if (existe) {
+    const updateData = {
+      name:     nombre.value,
+      rol:      tipo.value,
+      userName: user.value,
+    };
+    // ✅ Solo actualiza contraseña si es Gerente
+    if (userRol.value === "Gerente" && password.value) {
+      updateData.password = password.value;
+    }
+
+    const { error } = await supabase
+      .from("usuarios")
+      .update(updateData)
+      .eq("idusuario", clave.value);
+
+    if (error) {
+      console.error("Error al actualizar:", error);
+      mostrarAlerta("Error al actualizar el usuario");
+      return;
+    }
+    mostrarAlerta("Usuario actualizado correctamente", "success");
+
+  } else {
+    // Insertar nuevo — contraseña obligatoria solo para Gerente
+    const { data: dataAgg, error } = await supabase
+      .from("usuarios")
+      .insert([{
+        name:     nombre.value,
+        password: password.value,
+        rol:      tipo.value,
+        userName: user.value,
+      }])
+      .select();
+
+    if (error) {
+      console.error("Error al agregar usuario", error);
+      mostrarAlerta("Error al agregar el usuario");
+      return;
+    }
+    clave.value = dataAgg[0].idusuario;
+    mostrarAlerta("Usuario agregado correctamente", "success");
+  }
+
   await cargarUsuarios();
 };
 
@@ -159,6 +256,29 @@ onMounted(() => { cargarUsuarios(); });
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.35);
@@ -197,9 +317,8 @@ onMounted(() => { cargarUsuarios(); });
 }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
 
-.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px;}
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 
-/* Tabla */
 .tabla-panel {
   width: 300px; flex-shrink: 0;
   border-right: 1px solid #f0f0f0;
@@ -234,14 +353,12 @@ onMounted(() => { cargarUsuarios(); });
 .tabla tr.selected td { background: #f3f0ff; }
 .tabla-empty { text-align: center; color: #ccc; padding: 20px 0; font-size: 13px; }
 
-/* Formulario */
 .form-panel {
   flex: 1; display: flex; flex-direction: column;
   padding: 14px 18px; overflow-y: auto;
 }
 
 .fields { display: flex; flex-direction: column; gap: 10px; flex: 1; }
-
 .field-group { display: flex; flex-direction: column; gap: 4px; }
 
 .field-label {
@@ -262,7 +379,6 @@ onMounted(() => { cargarUsuarios(); });
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-/* Acciones */
 .form-actions {
   display: flex; gap: 8px;
   padding-top: 12px; margin-top: 8px;
@@ -293,25 +409,11 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .btn-primary:hover { background: #6d28d9; }
 
 .fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
+.fade-slide-leave-active { transition: all 0.3s ease; }
 .fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
+.fade-slide-leave-to { opacity: 0; }
 .fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
+.fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
 .fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

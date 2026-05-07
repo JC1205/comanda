@@ -74,7 +74,7 @@
 </template>
 
 <script setup>
-import { obtenerTurno, resultadoLogin, userLogin, userName } from "@/store/auth.js";
+import { obtenerTurno, resultadoLogin, userLogin, userName, userRol } from "@/store/auth.js";
 import { supabase } from "@/supabase/supabase";
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -113,7 +113,7 @@ const iniciarSesion = async () => {
 
   const { data, error } = await supabase
     .from("usuarios")
-    .select("idusuario,userName,password")
+    .select("idusuario,userName,password,rol")
     .eq("userName", usuario.value)
     .single();
 
@@ -125,7 +125,9 @@ const iniciarSesion = async () => {
   if (data && data.password === password.value) {
     userLogin.value = data.idusuario;
     userName.value = data.userName;
+    userRol.value   = data.rol; 
     localStorage.setItem('userLogin', data.idusuario);
+    localStorage.setItem('userRol',   data.rol);
 
     obtenerTurno();
     resultadoLogin.value = 'Inicio sesion correcto';

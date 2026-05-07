@@ -1,5 +1,15 @@
 <template>
-    <transition name="fade-slide">
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
+  <transition name="fade-slide">
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -11,20 +21,31 @@
       </div>
       <div class="modal-body">
         <div class="split-layout">
+
           <div class="tabla-panel">
             <p class="panel-label">Grupos</p>
             <div class="tabla-wrapper">
               <table class="tabla">
                 <thead><tr><th>Clave</th><th>Descripción</th><th>Máx.</th></tr></thead>
                 <tbody>
-                  <tr v-for="g in gruposModificadores" :key="g.idgrupomod" @click="obtenerGruposMod(g)" :class="{ selected: clave === g.idgrupomod }">
-                    <td>{{ g.idgrupomod }}</td><td>{{ g.nombre }}</td><td>{{ g.modificadoresmax }}</td>
+                  <tr
+                    v-for="g in gruposModificadores"
+                    :key="g.idgrupomod"
+                    @click="obtenerGruposMod(g)"
+                    :class="{ selected: clave === g.idgrupomod }"
+                  >
+                    <td>{{ g.idgrupomod }}</td>
+                    <td>{{ g.nombre }}</td>
+                    <td>{{ g.modificadoresmax }}</td>
                   </tr>
-                  <tr v-if="!gruposModificadores.length"><td colspan="3" class="tabla-empty">Sin grupos</td></tr>
+                  <tr v-if="!gruposModificadores.length">
+                    <td colspan="3" class="tabla-empty">Sin grupos</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
           <div class="form-panel">
             <p class="panel-label">Datos</p>
             <div class="fields">
@@ -43,10 +64,11 @@
             </div>
             <div class="form-actions">
               <button class="btn-secondary" @click="limpiarCampos">Limpiar</button>
-              <button class="btn-danger" @click="delGruposMod">Eliminar</button>
-              <button class="btn-primary" @click="aggGruposMod">Guardar</button>
+              <button class="btn-danger"    @click="delGruposMod">Eliminar</button>
+              <button class="btn-primary"   @click="aggGruposMod">Guardar</button>
             </div>
           </div>
+
         </div>
       </div>
     </div>
@@ -62,48 +84,138 @@ import { Sliders, X } from "lucide-vue-next";
 const props = defineProps(["mostrar"]);
 const emit  = defineEmits(["cerrar", "actualizado"]);
 
-const clave              = ref(null);
-const descripcion        = ref(null);
-const modifMax           = ref(null);
+const clave               = ref(null);
+const descripcion         = ref(null);
+const modifMax            = ref(null);
 const gruposModificadores = ref([]);
 
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
+};
+
+// ── Cargar grupos ──────────────────────────────────────────────
 const cargarGruposModif = async () => {
   const { data, error } = await supabase.from("grupomodificador").select();
-  if (error) { console.error("Error al obtener Grupos Modificadores", error); return; }
+  if (error) {
+    console.error("Error al obtener Grupos Modificadores", error);
+    mostrarAlerta("Error al cargar grupos modificadores");
+    return;
+  }
   gruposModificadores.value = data;
 };
 
-const limpiarCampos = () => { clave.value = null; descripcion.value = null; modifMax.value = null; };
-
-const obtenerGruposMod = (g) => { clave.value = g.idgrupomod; descripcion.value = g.nombre; modifMax.value = g.modificadoresmax; };
-
-const aggGruposMod = async () => {
-  await cargarGruposModif();
-  const existe = gruposModificadores.value.find(u => u.idgrupomod === clave.value);
-  if (existe) {
-    const { error } = await supabase.from("grupomodificador")
-      .update({ nombre: descripcion.value, modificadoresmax: modifMax.value })
-      .eq("idgrupomod", clave.value);
-    if (error) { console.error("Error al actualizar grupo modificador", error); return; }
-  } else {
-    const { data, error } = await supabase.from("grupomodificador")
-      .insert([{ nombre: descripcion.value, modificadoresmax: modifMax.value }]).select();
-    if (error) { console.error("Error al agregar grupo modificador", error); return; }
-    clave.value = data[0].idgrupomod;
-  }
-  await cargarGruposModif();
+// ── Helpers ────────────────────────────────────────────────────
+const limpiarCampos = () => {
+  clave.value       = null; // ✅ limpia clave para que próximo guardado sea inserción
+  descripcion.value = null;
+  modifMax.value    = null;
 };
 
+const obtenerGruposMod = (g) => {
+  clave.value       = g.idgrupomod;
+  descripcion.value = g.nombre;
+  modifMax.value    = g.modificadoresmax;
+};
+
+// ── Guardar / actualizar grupo ─────────────────────────────────
+const aggGruposMod = async () => {
+  if (!descripcion.value || !modifMax.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
+  }
+
+  // ✅ Usa gruposModificadores en memoria — sin select extra
+  const existe = gruposModificadores.value.find(u => u.idgrupomod === clave.value);
+
+  if (existe) {
+    const { error } = await supabase
+      .from("grupomodificador")
+      .update({ nombre: descripcion.value, modificadoresmax: modifMax.value })
+      .eq("idgrupomod", clave.value);
+    if (error) {
+      console.error("Error al actualizar grupo modificador", error);
+      mostrarAlerta("Error al actualizar el grupo");
+      return;
+    }
+    mostrarAlerta("Grupo actualizado correctamente", "success");
+  } else {
+    const { data, error } = await supabase
+      .from("grupomodificador")
+      .insert([{ nombre: descripcion.value, modificadoresmax: modifMax.value }])
+      .select();
+    if (error) {
+      console.error("Error al agregar grupo modificador", error);
+      mostrarAlerta("Error al agregar el grupo");
+      return;
+    }
+    clave.value = data[0].idgrupomod;
+    mostrarAlerta("Grupo agregado correctamente", "success");
+  }
+
+  await cargarGruposModif();
+  emit("actualizado");
+};
+
+// ── Eliminar grupo ─────────────────────────────────────────────
 const delGruposMod = async () => {
-  const { error } = await supabase.from("grupomodificador").delete().eq("idgrupomod", clave.value);
-  if (error) { console.error("Error al eliminar grupo modificador", error); return; }
-  await cargarGruposModif(); limpiarCampos();
+  // ✅ Validar selección
+  if (!clave.value) {
+    mostrarAlerta("Selecciona un grupo para eliminar");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("grupomodificador")
+    .delete()
+    .eq("idgrupomod", clave.value);
+
+  if (error) {
+    console.error("Error al eliminar grupo modificador", error);
+    mostrarAlerta("Error al eliminar el grupo");
+    return;
+  }
+
+  mostrarAlerta("Grupo eliminado correctamente", "success");
+  limpiarCampos();
+  await cargarGruposModif();
+  emit("actualizado");
 };
 
 onMounted(() => { cargarGruposModif(); });
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 1200; }
 .modal-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 40px rgba(0,0,0,0.14); width: 620px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 25px 36px; border-bottom: 1px solid #f0f0f0; flex-shrink: 0; }
@@ -111,7 +223,7 @@ onMounted(() => { cargarGruposModif(); });
 .modal-icon { width: 28px; height: 28px; border-radius: 8px; background: #ede9fe; color: #7c3aed; display: flex; align-items: center; justify-content: center; }
 .close-btn { width: 26px; height: 26px; border: none; background: #f5f5f5; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #888; }
 .close-btn:hover { background: #ffe5e5; color: #e53935; }
-.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px;}
+.modal-body { display: flex; flex: 1; overflow: hidden; padding: 10px 36px 32px 32px; }
 .split-layout { display: flex; flex: 1; overflow: hidden; }
 .tabla-panel { width: 260px; flex-shrink: 0; border-right: 1px solid #f0f0f0; display: flex; flex-direction: column; padding: 12px; overflow: hidden; }
 .panel-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #bbb; margin: 0 0 8px; flex-shrink: 0; }
@@ -138,26 +250,8 @@ input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer
 .btn-primary { flex: 1; padding: 7px 12px; border: none; border-radius: 8px; background: #7c3aed; font-size: 12px; font-weight: 600; color: #fff; cursor: pointer; }
 .btn-primary:hover { background: #6d28d9; }
 
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: all 0.3s ease;
-}
-
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-}
-
-.fade-slide-enter-from .modal-card,
-.fade-slide-leave-to .modal-card {
-  transform: translateY(-20px);
-  opacity: 0;
-}
-
-.fade-slide-enter-to .modal-card,
-.fade-slide-leave-from .modal-card {
-  transform: translateY(0);
-  opacity: 1;
-}
-
+.fade-slide-enter-active, .fade-slide-leave-active { transition: all 0.3s ease; }
+.fade-slide-enter-from, .fade-slide-leave-to { opacity: 0; }
+.fade-slide-enter-from .modal-card, .fade-slide-leave-to .modal-card { transform: translateY(-20px); opacity: 0; }
+.fade-slide-enter-to .modal-card, .fade-slide-leave-from .modal-card { transform: translateY(0); opacity: 1; }
 </style>

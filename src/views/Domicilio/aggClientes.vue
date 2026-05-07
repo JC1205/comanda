@@ -1,4 +1,14 @@
 <template>
+  <Teleport to="body">
+    <div v-if="alertaVisible" role="alert" class="alert" :class="alertaTipo === 'error' ? 'alert-error' : 'alert-success'">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+        <path v-if="alertaTipo === 'error'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span>{{ alertaMensaje }}</span>
+    </div>
+  </Teleport>
+
   <div v-if="mostrar" class="modal-overlay">
     <div class="modal-card">
       <div class="modal-header">
@@ -59,7 +69,7 @@
 
       <div class="modal-footer">
         <button class="btn-cancel" @click="$emit('cerrar'); limpiarCampos()">Cancelar</button>
-        <button class="btn-confirm" @click="abrirCuenta(); limpiarCampos(); emit('cerrar')">Aceptar</button>
+        <button class="btn-confirm" @click="handleAceptar">Aceptar</button>
       </div>
     </div>
   </div>
@@ -89,13 +99,34 @@ const direccion    = ref([]);
 const now  = new Date();
 const hora = ref(now.toTimeString().split(" ")[0]);
 
-const limpiarCampos = () => {
-  nombre.value = null; telefono.value = null;
-  calle.value = null; colonia.value = null; numCasa.value = null;
-  cruzamiento1.value = null; cruzamiento2.value = null;
-  referencias.value = null; buscar.value = null;
+// ── Alerta ─────────────────────────────────────────────────────
+const alertaVisible = ref(false);
+const alertaTipo    = ref("error");
+const alertaMensaje = ref("");
+
+const mostrarAlerta = (mensaje, tipo = "error") => {
+  alertaMensaje.value = mensaje;
+  alertaTipo.value    = tipo;
+  alertaVisible.value = true;
+  setTimeout(() => { alertaVisible.value = false; }, 3000);
 };
 
+// ── Limpiar ────────────────────────────────────────────────────
+const limpiarCampos = () => {
+  nombre.value       = null;
+  telefono.value     = null;
+  calle.value        = null;
+  colonia.value      = null;
+  numCasa.value      = null;
+  cruzamiento1.value = null;
+  cruzamiento2.value = null;
+  referencias.value  = null;
+  buscar.value       = null;
+  idCliente.value    = null; // ✅ limpiar cliente activo
+  idDireccion.value  = null; // ✅ limpiar dirección activa
+};
+
+// ── Consultar dirección ────────────────────────────────────────
 const consultarDireccion = async (id) => {
   const { data, error } = await supabase.from("direcciones").select().eq("idcliente", id);
   if (error) { console.error("Error al obtener direcciones", error); return; }
@@ -104,12 +135,7 @@ const consultarDireccion = async (id) => {
   idDireccion.value = data[0].iddireccion;
 };
 
-const consultarCliente = async () => {
-  const { data, error } = await supabase.from("clientes").select();
-  if (error) { console.error("Error al obtener clientes"); return; }
-  clientes.value = data[0];
-};
-
+// ── Buscar cliente ─────────────────────────────────────────────
 async function searchCliente() {
   if (!buscar.value) { clientes.value = []; return; }
 
@@ -142,10 +168,10 @@ async function searchCliente() {
   idDireccion.value  = direccion.value.iddireccion;
 }
 
+// ── Guardar cliente ────────────────────────────────────────────
 const aggCliente = async () => {
-  await consultarCliente();
-
   if (idCliente.value) {
+    // ✅ Actualizar cliente existente directamente con idCliente
     const { error: errorUp } = await supabase
       .from("clientes")
       .update({ nombre: nombre.value, numero: telefono.value })
@@ -156,9 +182,12 @@ const aggCliente = async () => {
     const { error: errorDirUp } = await supabase
       .from("direcciones")
       .update({
-        calle: calle.value, numcasa: numCasa.value, colonia: colonia.value,
-        interseccion1: cruzamiento1.value, interseccion2: cruzamiento2.value,
-        referencias: referencias.value,
+        calle:         calle.value,
+        numcasa:       numCasa.value,
+        colonia:       colonia.value,
+        interseccion1: cruzamiento1.value,
+        interseccion2: cruzamiento2.value,
+        referencias:   referencias.value,
       })
       .eq("iddireccion", idDireccion.value);
     if (errorDirUp) { console.error("Error al actualizar dirección", errorDirUp); return; }
@@ -189,17 +218,24 @@ const aggCliente = async () => {
   }
 };
 
+// ── Abrir cuenta ───────────────────────────────────────────────
 const abrirCuenta = async () => {
   const { data: dataPedidos, error: errorPedidos } = await supabase
     .from("pedidos").select().eq("abierto", true).eq("tipo", "Domicilio");
-  if (errorPedidos) { console.error("Error al obtener pedidos", errorPedidos); return; }
+  if (errorPedidos) { console.error("Error al obtener pedidos", errorPedidos); return false; }
 
   const existe = dataPedidos.find(u => u.idcliente === idCliente.value);
-  if (existe) { console.log("Ya existe una cuenta con ese cliente"); return; }
+  if (existe) {
+    mostrarAlerta("Ya existe una cuenta abierta con este cliente");
+    return false;
+  }
 
   if (!idTurno.value || !hora.value || !idCliente.value) {
-    console.error("Campos obligatorios faltantes"); return;
+    console.error("Campos obligatorios faltantes");
+    return false;
   }
+
+  const horaActual = new Date().toTimeString().split(" ")[0];
 
   const { data, error } = await supabase
     .from("pedidos")
@@ -207,7 +243,7 @@ const abrirCuenta = async () => {
       nombre:       "",
       idturno:      idTurno.value,
       tipo:         "Domicilio",
-      horaapertura: hora.value,
+      horaapertura: horaActual,
       impreso:      false,
       abierto:      true,
       eliminado:    false,
@@ -215,22 +251,62 @@ const abrirCuenta = async () => {
       idcliente:    idCliente.value,
     }])
     .select();
-  if (error) { console.error("❌ Error al crear pedido", error); return; }
+  if (error) { console.error("❌ Error al crear pedido", error); return false; }
 
   idPedido.value = data[0].idpedido;
 
   const { data: result, error: error2 } = await supabase.rpc("incrementar_total_notas", {
     turno_id: idTurno.value,
   });
-  if (error2) { console.error("❌ Error al aumentar pedidos", error2); return; }
+  if (error2) { console.error("❌ Error al aumentar pedidos", error2); return false; }
   numPedidos.value = result;
 
+  return true;
+};
+
+// ── Botón Aceptar — validación + flujo completo ───────────────
+const handleAceptar = async () => {
+  // ✅ Validación campos obligatorios
+  if (!nombre.value || !telefono.value || !numCasa.value || !calle.value) {
+    mostrarAlerta("Llenar campos obligatorios");
+    return;
+  }
+
+  await aggCliente();
+
+  const exito = await abrirCuenta();
+  if (!exito) return; // ✅ No cierra si hubo error
+
   emit("actualizado");
+  limpiarCampos();
   emit("cerrar");
 };
 </script>
 
 <style scoped>
+.alert {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  animation: fadeIn 0.3s ease;
+}
+.alert-error   { background: #ffe5e5; color: #c0392b; border: 1px solid #e74c3c; }
+.alert-success { background: #e6fff0; color: #1e8449;  border: 1px solid #2ecc71; }
+@keyframes fadeIn {
+  from { opacity: 0; top: 10px; }
+  to   { opacity: 1; top: 20px; }
+}
+
 .modal-overlay {
   position: fixed;
   inset: 0;
